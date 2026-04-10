@@ -1,10 +1,6 @@
 function YearFilterView({ year, onYearChange }) {
   return (
     <div className="rounded-xl border border-blue-100 bg-white/95 p-3 shadow-lg backdrop-blur">
-      <p className="mb-2 text-sm font-medium text-slate-800">
-        Année sélectionnée : {year}
-      </p>
-
       <input
         type="range"
         min="2019"

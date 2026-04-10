@@ -10,8 +10,8 @@ const INITIAL_VIEW_STATE = {
   zoom: 11
 };
 
-function MapView({ geoJsonUrl }) {
-  const { data: districtData } = useGeoJsonData(geoJsonUrl);
+function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
+  const { data: arrondissementsData } = useGeoJsonData(geoJsonUrl);
   const { data: roadData } = useGeoJsonData("/data/voies.geojson");
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
 
@@ -19,17 +19,27 @@ function MapView({ geoJsonUrl }) {
     const output = [];
     const showRoads = viewState.zoom >= 12.3;
 
-    if (districtData) {
+    const filteredArrondissements =
+      arrondissementsData && selectedArrondissement !== "all"
+        ? {
+            ...arrondissementsData,
+            features: arrondissementsData.features.filter(
+              (f) => f?.properties?.code === selectedArrondissement
+            )
+          }
+        : arrondissementsData;
+
+    if (filteredArrondissements) {
       output.push(
-      createDistrictLayer(
-        {
-          ...districtData,
-          features: districtData.features
-        },
-        "nom",
-        !showRoads
-      )
-        );
+        createDistrictLayer(
+          {
+            ...filteredArrondissements,
+            features: filteredArrondissements.features
+          },
+          "nom",
+          !showRoads
+        )
+      );
     }
 
     if (roadData && showRoads) {
@@ -37,7 +47,7 @@ function MapView({ geoJsonUrl }) {
     }
 
     return output;
-  }, [districtData, roadData, viewState.zoom]);
+  }, [arrondissementsData, roadData, viewState.zoom, selectedArrondissement]);
 
   return (
     <section className="relative isolate h-[85vh] w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-sm">
@@ -56,23 +66,23 @@ function MapView({ geoJsonUrl }) {
         layers={layers}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
         getTooltip={({ object, layer }) => {
-                    if (!object) return null;
+          if (!object) return null;
 
-                    const p = object.properties || {};
-                    const isRoad = layer?.id === "road-layer";
+          const p = object.properties || {};
+          const isRoad = layer?.id === "road-layer";
 
-                    if (isRoad) {
-                        return {
-                            text: p.l_longmin || p.l_voie || p.l_courtmin || "Voie"
-                        };
-                    }
+          if (isRoad) {
+            return {
+              text: p.l_longmin || p.l_voie || p.l_courtmin || "Voie"
+            };
+          }
 
-                    return {
-                        text: p.nom || p.name || "Arrondissement"
-                    };
-                }}
-            />
-        </section>
+          return {
+            text: p.nom || p.name || "Arrondissement"
+          };
+        }}
+      />
+    </section>
   );
 }
 
