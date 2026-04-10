@@ -17,12 +17,21 @@ function MapView({ geoJsonUrl }) {
 
   const layers = useMemo(() => {
     const output = [];
+    const showRoads = viewState.zoom >= 12.3;
 
     if (districtData) {
-      output.push(createDistrictLayer(districtData, "nom"));
+      output.push(
+      createDistrictLayer(
+        {
+          ...districtData,
+          features: districtData.features
+        },
+        "nom",
+        !showRoads
+      )
+        );
     }
 
-    const showRoads = viewState.zoom >= 11;
     if (roadData && showRoads) {
       output.push(createRoadLayer(roadData));
     }
@@ -36,23 +45,34 @@ function MapView({ geoJsonUrl }) {
         viewState={viewState}
         onViewStateChange={({ viewState: next }) => setViewState(next)}
         controller={{
-          dragPan: false,
+          dragPan: true,
           dragRotate: false,
           touchRotate: false,
-          scrollZoom: false,
+          scrollZoom: true,
           doubleClickZoom: false,
-          touchZoom: false,
+          touchZoom: true,
           keyboard: false
         }}
         layers={layers}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-        getTooltip={({ object }) => {
-          if (!object) return null;
-          const p = object.properties || {};
-          return { text: p.nom || p.l_longmin || p.l_voie || "Feature" };
-        }}
-      />
-    </section>
+        getTooltip={({ object, layer }) => {
+                    if (!object) return null;
+
+                    const p = object.properties || {};
+                    const isRoad = layer?.id === "road-layer";
+
+                    if (isRoad) {
+                        return {
+                            text: p.l_longmin || p.l_voie || p.l_courtmin || "Voie"
+                        };
+                    }
+
+                    return {
+                        text: p.nom || p.name || "Arrondissement"
+                    };
+                }}
+            />
+        </section>
   );
 }
 

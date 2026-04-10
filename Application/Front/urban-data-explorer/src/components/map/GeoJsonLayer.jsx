@@ -38,11 +38,11 @@ function hslToRgba(h, s, l, a) {
   ];
 }
 
-export function createDistrictLayer(data, colorProperty = "nom") {
+export function createDistrictLayer(data, colorProperty = "nom", pickable = true) {
   return new DeckGeoJsonLayer({
     id: "district-layer",
     data,
-    pickable: true,
+    pickable,
     stroked: true,
     filled: true,
     autoHighlight: true,
@@ -60,10 +60,14 @@ export function createRoadLayer(data) {
   return new DeckGeoJsonLayer({
     id: "road-layer",
     data,
-    pickable: false,
+    pickable: true,
     stroked: true,
     filled: false,
-    lineWidthMinPixels: 0.8,
-    getLineColor: [37, 99, 235, 170]
+    autoHighlight: true,
+    highlightColor: [15, 23, 42, 180],
+    lineWidthScale: 1,
+    lineWidthMinPixels: 1,
+    getLineWidth: 1,
+    getLineColor: [37, 99, 235, 190]
   });
 }
