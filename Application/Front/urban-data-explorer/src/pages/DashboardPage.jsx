@@ -1,7 +1,7 @@
 import { useState } from "react";
 import MapView from "../components/map/MapView";
 import FilterView from "../components/map/FilterView";
-import YearFilterView from "../components/map/YearFilterView";
+import YearFilterView from "../components/map/MetricsView";
 
 function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(2020);
