@@ -1,2 +1,6 @@
-dagster 
-dagster dagit
+dagster
+dagit
+pandas
+geopandas
+pyarrow
+openpyxl
