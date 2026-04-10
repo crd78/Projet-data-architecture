@@ -2,3 +2,7 @@
 Pipeline/src/.tmp_dagster_home_3x_vrxpu/
 
 Pipeline/datasets_finaux/
+
+Pipeline/src/__pycache__/
+
+Pipeline/src/Silver/__pycache__/
