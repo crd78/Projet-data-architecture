@@ -49,11 +49,25 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
     return output;
   }, [arrondissementsData, roadData, viewState.zoom, selectedArrondissement]);
 
+  const handleMapClick = (info) => {
+    if (!info?.coordinate) return;
+
+    const [longitude, latitude] = info.coordinate;
+
+    console.log("Coordonnees :", {
+      longitude,
+      latitude,
+      longitudeFixed: Number(longitude).toFixed(6),
+      latitudeFixed: Number(latitude).toFixed(6)
+    });
+  };
+
   return (
     <section className="relative isolate h-[85vh] w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-sm">
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState: next }) => setViewState(next)}
+        onClick={handleMapClick}
         controller={{
           dragPan: true,
           dragRotate: false,
