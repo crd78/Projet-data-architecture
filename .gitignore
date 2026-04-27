@@ -9,6 +9,6 @@ Pipeline/src/Silver/__pycache__/
 
 venv
 
-.tmp_dagster_home_*
+.tmp_dagster_home_*/
 
 .claude
