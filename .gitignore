@@ -10,3 +10,5 @@ Pipeline/src/Silver/__pycache__/
 Pipeline/.dagster_home/
 
 Pipeline/src/.tmp_dagster_home_472rfip5/
+
+Pipeline/dagster_home/
