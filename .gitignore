@@ -11,4 +11,5 @@ venv
 
 .tmp_dagster_home_*/
 
+Pipeline/dagster_home/
 .claude
