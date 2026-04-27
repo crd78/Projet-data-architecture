@@ -1,0 +1,51 @@
+version: "3.8"
+services:
+  dagster-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-f", "src/definition.py", "-d", "/app/src"]
+    depends_on:
+      - redis
+    volumes:
+      - ./dagster_home:/opt/dagster/dagster_home
+
+  dagster-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+    command: ["dagster-daemon", "run", "-f", "src/definition.py", "-d", "/app/src"]
+    depends_on:
+      - redis
+    volumes:
+      - ./dagster_home:/opt/dagster/dagster_home
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DAGSTER_HOME=/opt/dagster/dagster_home
+    command: ["celery", "-A", "src.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "dagster", "--concurrency=2"]
+    depends_on:
+      - redis
+    volumes:
+      - ./dagster_home:/opt/dagster/dagster_home
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+
+
+
+
+
+      

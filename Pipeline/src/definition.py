@@ -6,6 +6,7 @@ from dagster import (
     DagsterRunStatus,
     run_status_sensor,
 )
+from dagster_celery import celery_executor
 from Bronze.Ingestion import all_ingestion_assets, ingestion_job
 from Silver.preprocessing import all_preprocessing_assets, preprocessing_job
 
@@ -29,8 +30,15 @@ def silver_after_bronze_sensor(context: RunStatusSensorContext):
 
 defs = Definitions(
     assets=all_ingestion_assets + all_preprocessing_assets,
+    jobs=[job for job in [ingestion_job, preprocessing_job] if job is not None],
+    schedules=[weekly_ingestion_schedule, weekly_preprocessing_schedule],
+    executor=celery_executor.configured(
+        {
+            "broker": "redis://redis:6379/0",
+            "backend": "redis://redis:6379/0",
+        }
+    ),
     jobs=[ingestion_job, preprocessing_job],
     schedules=[bronze_daily_schedule],
     sensors=[silver_after_bronze_sensor],
 )
-
