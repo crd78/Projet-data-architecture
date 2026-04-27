@@ -1,5 +1,5 @@
 
-Pipeline/src/.tmp_dagster_home_3x_vrxpu/
+Pipeline/src/.tmp_dagster_home_*/
 
 Pipeline/datasets_finaux/
 
@@ -7,10 +7,8 @@ Pipeline/src/__pycache__/
 
 Pipeline/src/Silver/__pycache__/
 
-<<<<<<< HEAD
 venv
-=======
-Pipeline/.dagster_home/
 
-Pipeline/src/.tmp_dagster_home_472rfip5/
->>>>>>> e307a3a4a9bbf08cf208ff5cd2b16766ed2d79e3
+.tmp_dagster_home_*
+
+.claude
