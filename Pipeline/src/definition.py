@@ -1,9 +1,36 @@
-from dagster import Definitions
+from dagster import (
+    Definitions,
+    ScheduleDefinition,
+    RunRequest,
+    RunStatusSensorContext,
+    DagsterRunStatus,
+    run_status_sensor,
+)
 from Bronze.Ingestion import all_ingestion_assets, ingestion_job
 from Silver.preprocessing import all_preprocessing_assets, preprocessing_job
 
+# Bronze tourne tous les jours à minuit
+bronze_daily_schedule = ScheduleDefinition(
+    name="bronze_daily_schedule",
+    job=ingestion_job,
+    cron_schedule="0 0 * * *",
+)
+
+# Silver se déclenche automatiquement dès que Bronze termine avec succès
+@run_status_sensor(
+    name="silver_after_bronze_sensor",
+    run_status=DagsterRunStatus.SUCCESS,
+    monitored_jobs=[ingestion_job],
+    request_job=preprocessing_job,
+)
+def silver_after_bronze_sensor(context: RunStatusSensorContext):
+    return RunRequest(run_key=context.dagster_run.run_id)
+
+
 defs = Definitions(
     assets=all_ingestion_assets + all_preprocessing_assets,
-    jobs=[job for job in [ingestion_job, preprocessing_job] if job is not None],
+    jobs=[ingestion_job, preprocessing_job],
+    schedules=[bronze_daily_schedule],
+    sensors=[silver_after_bronze_sensor],
 )
 
