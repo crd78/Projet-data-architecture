@@ -1,0 +1,41 @@
+
+{
+  "nomenclature_commerces_paris_2020": [
+    {
+      "categorie": "Restaurants & Restauration rapide",
+      "items": [
+        { "codes": ["101", "CH101"], "libelle": "Restauration traditionnelle" },
+        { "codes": ["102", "CH102"], "libelle": "Restauration de chaînes" },
+        { "codes": ["103", "CH103"], "libelle": "Restauration d'influence étrangère" },
+        { "codes": ["106", "CH106"], "libelle": "Restauration rapide / Sandwicheries" }
+      ]
+    },
+    {
+      "categorie": "Épiceries & Alimentation",
+      "items": [
+        { "codes": ["CA01", "CA101"], "libelle": "Épiceries générales / Supérettes" },
+        { "codes": ["CA02", "CA102"], "libelle": "Supermarchés" },
+        { "codes": ["CA03", "CA103"], "libelle": "Alimentation biologique" },
+        { "codes": ["CA11", "CA111"], "libelle": "Cavistes et boissons" },
+        { "codes": ["CA04", "CA201"], "libelle": "Boulangeries / Pâtisseries" },
+        { "codes": ["CA06", "CA203"], "libelle": "Boucheries / Charcuteries" }
+      ]
+    },
+    {
+      "categorie": "Bars & Vie nocturne",
+      "items": [
+        { "codes": ["108", "CH108"], "libelle": "Cafés / Bars / Brasseries" },
+        { "codes": ["109", "CH109"], "libelle": "Débits de boissons spécialisés" },
+        { "codes": ["SA06", "SA601"], "libelle": "Discothèques / Clubs" }
+      ]
+    },
+    {
+      "categorie": "Commerces de détail",
+      "items": [
+        { "codes": ["CB01", "CB101"], "libelle": "Habillement / Prêt-à-porter" },
+        { "codes": ["CD01", "CD201"], "libelle": "Décoration / Ameublement" },
+        { "codes": ["CC01", "CC301"], "libelle": "Opticiens" }
+      ]
+    }
+  ]
+}
