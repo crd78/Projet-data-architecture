@@ -23,7 +23,11 @@ def median_per_arrondissement(
             },
             "count": {"$sum": 1},
         }},
-        {"$project": {"_id": 0}},
+        {"$project": {
+            "_id": 0,
+            "count": 1,
+            "median_price_loyer": {"$round": ["$median_price_loyer", 2]},
+        }},
     ]
     
     result = list(collection.aggregate(pipeline))
@@ -58,9 +62,11 @@ def repartition_types_logements(
                 "loyers_de_reference": {"$type": "number"},
             }
         },
+        
         # Comptage par nombre de pièces
         {"$group": {"_id": "$nombre_de_pieces_principales", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
+        
         # Total
         {
             "$group": {
@@ -69,6 +75,7 @@ def repartition_types_logements(
                 "items": {"$push": {"pieces": "$_id", "count": "$count"}},
             }
         },
+        
         # Calcul des pourcentages
         {
             "$project": {
@@ -139,7 +146,11 @@ def accessibilite_loyer_revenu(
                 "n_loyers": {"$sum": 1},
             }
         },
-        {"$project": {"_id": 0}},
+        {"$project": {
+            "_id": 0,
+            "n_loyers": 1,
+            "loyer_m2_median": {"$round": ["$loyer_m2_median", 2]},
+        }},
     ]
 
     loyer_res = list(loyers.aggregate(loyer_pipeline))
@@ -191,10 +202,10 @@ def accessibilite_loyer_revenu(
     return {
         "annee": annee,
         "arrondissement": arrondissement,
-        "loyer_m2_median": loyer_m2,
-        "income_monthly": income_monthly,
+        "loyer_m2_median": round(loyer_m2, 2) if loyer_m2 is not None else None,
+        "income_monthly": round(income_monthly, 2),
         "revenu_proportion": revenu_proportion,
-        "m2_accessible": m2_accessible,
+        "m2_accessible": round(m2_accessible, 2) if m2_accessible is not None else None,
     }
 
 @router.get("/logements_sociaux_total")
