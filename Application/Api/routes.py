@@ -116,3 +116,96 @@ def repartition_types_logements(
         }
 
     return {"annee": annee, "arrondissement": arrondissement, **result[0]}
+
+@router.get("/accessibilite_loyer_revenu")
+def accessibilite_loyer_revenu(
+    request: Request,
+    annee: int = Query(..., ge=2019, le=2023, description="Année"),
+    arrondissement: int = Query(..., ge=1, le=20, description="Arrondissement"),
+    revenu_proportion: float = Query(
+        0.4,
+        ge=0.05,
+        le=0.8,
+        description="Part du revenu mensuel utilisée pour payer le loyer (0.4 = 40%)",
+    ),
+):
+    db = request.app.state.mongo_db
+
+    # Loyer médian au m²
+    loyers = db["location_arrondissement"]
+    loyer_pipeline = [
+        {
+            "$match": {
+                "annee": annee,
+                "secteurs_geographiques": arrondissement,
+                "loyers_de_reference": {"$type": "number"},
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "loyer_m2_median": {
+                    "$median": {"input": "$loyers_de_reference", "method": "approximate"}
+                },
+                "n_loyers": {"$sum": 1},
+            }
+        },
+        {"$project": {"_id": 0}},
+    ]
+
+    loyer_res = list(loyers.aggregate(loyer_pipeline))
+    if not loyer_res:
+        return {
+            "reason": "no_loyer_data",
+            "annee": annee,
+            "arrondissement": arrondissement,
+        }
+
+    loyer_m2 = loyer_res[0]["loyer_m2_median"]
+
+    # Revenu annuel médian 
+    revenus = db["population_niveau_vie"]
+    iris_prefix = f"751{arrondissement:02d}"
+
+    revenu_pipeline = [
+        {"$match": {"iris": {"$regex": f"^{iris_prefix}"}}},
+        {"$addFields": {
+            "dec_med_num": {
+                "$convert": {"input": "$dec_med", "to": "double", "onError": None, "onNull": None}
+            }
+        }},
+        {"$match": {"dec_med_num": {"$ne": None}}},
+        {
+            "$group": {
+                "_id": None,
+                "income_annual_avg_of_iris_medians": {"$avg": "$dec_med_num"},
+                "n_iris": {"$sum": 1},
+            }
+        },
+        {"$project": {"_id": 0}},
+    ]
+
+    revenu_res = list(revenus.aggregate(revenu_pipeline))
+    if not revenu_res or revenu_res[0].get("income_annual_avg_of_iris_medians") is None:
+        return {
+            "reason": "no_income_data",
+            "annee": annee,
+            "arrondissement": arrondissement,
+        }
+
+    income_annual = revenu_res[0]["income_annual_avg_of_iris_medians"]
+    income_monthly = income_annual / 12.0
+
+    # 3. Formule de calcul de l'accessibilité : m² louable = (proportion du revenu * revenu_mensuel) / loyer_m2
+    m2_accessible = (revenu_proportion * income_monthly) / loyer_m2 if loyer_m2 else None
+
+    return {
+        "annee": annee,
+        "arrondissement": arrondissement,
+        "loyer_m2_median": loyer_m2,
+        "income_monthly": income_monthly,
+        "revenu_proportion": revenu_proportion,
+        "m2_accessible": m2_accessible,
+    }
+
+   
