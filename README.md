@@ -66,13 +66,52 @@ L’objectif est de structurer des sources hétérogènes en un modèle cohéren
 1. **Sources de donnnées**
 
 La pipeline s'appuie sur plusieurs sources provenant de [data.gouv.fr](data.gouv.fr), [Paris Open Data](https://opendata.paris.fr/pages/home/). Il s'agit soit de csv soit d'API. Voici les différentes sources pour chaque type:
-- **Logements**: 
+
+- **Logements** :
   - encadrement des loyers
   - nombre de vente par type de logements
-- **Social**:
+- **Social** :
   - Logements sociaux
   - Revenus médian
-- **Parking**:
+- **Parking** :
   - stationnements parking public
   - stationnements voie
-  - 
+- **Traffic** :
+  - API sur la densité du traffic
+- **Nuisibles** :
+  - Les chantiers dans Paris
+  - Qualité de l'espace public
+
+2. **Data Lake** :
+   
+Les données brutes sont stockées dans un data lake au format Parquet :
+
+- Format optimisé pour la performance
+- Compression efficace
+- Lecture rapide pour traitement analytique
+
+3. **DataWarehouse** :
+
+Les données sont ensuite transformées dans un data warehouse :
+
+- nettoyage des valeurs aberrantes
+- normalisation des formats
+- enrichissement géographique
+- jointure entre datasets
+
+4. **Datamart** :
+
+Les données sont finalement organisées en datamarts permettant de visualiser nos KPI sur le dashboard.
+
+- Immobilier:
+  - prix médian
+  - répartition des biens
+- Social:
+  - logements sociaux
+  - accessibilité (prix vs revenus)
+- Urbanisme
+  - nuisances sonores
+  - stationnements
+- Activité
+  - activité dans le quartier
+  - données réglementaires
