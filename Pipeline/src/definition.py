@@ -1,28 +1,43 @@
-from dagster import Definitions, ScheduleDefinition
+from dagster import (
+    Definitions,
+    ScheduleDefinition,
+    RunRequest,
+    RunStatusSensorContext,
+    DagsterRunStatus,
+    run_status_sensor,
+)
 from dagster_celery import celery_executor
 from Bronze.Ingestion import all_ingestion_assets, ingestion_job
 from Silver.preprocessing import all_preprocessing_assets, preprocessing_job
 
-weekly_ingestion_schedule = ScheduleDefinition(
+# Bronze tourne tous les jours à minuit
+bronze_daily_schedule = ScheduleDefinition(
+    name="bronze_daily_schedule",
     job=ingestion_job,
-    cron_schedule="0 2 * * 1",
-    execution_timezone="Europe/Paris",
+    cron_schedule="0 0 * * *",
 )
 
-weekly_preprocessing_schedule = ScheduleDefinition(
-    job=preprocessing_job,
-    cron_schedule="30 2 * * 1",
-    execution_timezone="Europe/Paris",
+# Silver se déclenche automatiquement dès que Bronze termine avec succès
+@run_status_sensor(
+    name="silver_after_bronze_sensor",
+    run_status=DagsterRunStatus.SUCCESS,
+    monitored_jobs=[ingestion_job],
+    request_job=preprocessing_job,
 )
+def silver_after_bronze_sensor(context: RunStatusSensorContext):
+    return RunRequest(run_key=context.dagster_run.run_id)
+
 
 defs = Definitions(
     assets=all_ingestion_assets + all_preprocessing_assets,
-    jobs=[job for job in [ingestion_job, preprocessing_job] if job is not None],
-    schedules=[weekly_ingestion_schedule, weekly_preprocessing_schedule],
+    jobs=[ingestion_job, preprocessing_job],
+    chedules=[bronze_daily_schedule],
+    sensors=[silver_after_bronze_sensor],
     executor=celery_executor.configured(
         {
             "broker": "redis://redis:6379/0",
             "backend": "redis://redis:6379/0",
         }
     ),
+    
 )
