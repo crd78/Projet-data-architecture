@@ -2,7 +2,10 @@ import os
 import sqlite3
 import pandas as pd
 from pathlib import Path
-from func import point_dans_zone
+try:
+    from .func import point_dans_zone
+except ImportError:
+    from func import point_dans_zone
 import requests as r
 import json
 
@@ -14,11 +17,9 @@ BASE_DIR     = PIPELINE_DIR / "datasets_finaux"
 parquet_folder = "KPI_personnalise_silver"
 
 # Base SQLite
-db_path = "paris_immobilier.db"
+db_path = PIPELINE_DIR / "paris_immobilier.db"
 
 # Connexion à la base
-conn = sqlite3.connect(db_path)
-
 # Table de tous les quartiers
 def quartiers_paris():
     file = "quartier_paris.parquet"
@@ -429,16 +430,5 @@ def prix_arrondissement():
 
 
 
-# quartiers_paris()
-# activite_quartier()
-#nuisance_sonore()
-#disponibilite_stationnement()
-#proprete_general()
-#population_niveau_vie()
-#location_arrondissement()
-#logement_sociaux()
-prix_arrondissement()
-# delete table prix_arrondissement
-
-
-conn.close()
+if __name__ == "__main__":
+    prix_arrondissement()

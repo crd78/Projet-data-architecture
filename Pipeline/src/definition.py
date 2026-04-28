@@ -8,7 +8,8 @@ from dagster import (
 )
 from Bronze.Ingestion import all_ingestion_assets, ingestion_job
 from Silver.preprocessing import all_preprocessing_assets, preprocessing_job
-from gold.gold_job import all_gold_assets, gold_job
+from gold.gold_assets import all_gold_assets
+from gold.gold_job import gold_job
 
 
 # Bronze tourne tous les jours à minuit
