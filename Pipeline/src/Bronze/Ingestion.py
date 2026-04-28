@@ -1,9 +1,9 @@
-import os
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 from dagster import (
+    AssetSelection,
     AssetExecutionContext,
     Definitions,
     MaterializeResult,
@@ -12,7 +12,6 @@ from dagster import (
     define_asset_job,
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "datasets_finaux"
 PIPELINE_DIR = Path(__file__).resolve().parent.parent.parent
 PARQUET_BASE_DIR = PIPELINE_DIR / "datasets_finaux"
 
@@ -54,7 +53,6 @@ def _list_source_files(source_dir: Path) -> list[Path]:
 def _ingest_kpi_dataset(context: AssetExecutionContext, kpi_key: str) -> MaterializeResult:
     source_dir = SOURCES[kpi_key]
     output_dir = OUTPUT[kpi_key]
-    source_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     files = _list_source_files(source_dir)
@@ -63,7 +61,7 @@ def _ingest_kpi_dataset(context: AssetExecutionContext, kpi_key: str) -> Materia
     total_rows = 0
 
     if not files:
-        context.log.info(f"Aucun fichier source pour {kpi_key} dans {source_dir}")
+        raise FileNotFoundError(f"Aucun fichier source pour {kpi_key} dans {source_dir}")
 
     for source_path in files:
         stem = source_path.stem
@@ -72,7 +70,7 @@ def _ingest_kpi_dataset(context: AssetExecutionContext, kpi_key: str) -> Materia
             df = read_dataset_file(source_path)
             # Evite les erreurs parquet sur colonnes object heterogenes
             for col in df.select_dtypes(include="object").columns:
-                df[col] = df[col].astype(str)
+                df[col] = df[col].astype("string")
 
             df.to_parquet(output_path, index=False)
             processed += 1
@@ -81,6 +79,9 @@ def _ingest_kpi_dataset(context: AssetExecutionContext, kpi_key: str) -> Materia
         except Exception as exc:
             failed += 1
             context.log.error(f"Erreur sur {source_path.name}: {exc}")
+
+    if failed:
+        raise RuntimeError(f"{failed} fichier(s) Bronze en erreur pour {kpi_key}")
 
     return MaterializeResult(
         metadata={
@@ -109,7 +110,7 @@ all_ingestion_assets = [bronze_kpi_impose, bronze_kpi_personnalise]
 
 ingestion_job = define_asset_job(
     name="bronze_ingestion_job",
-    selection=all_ingestion_assets,
+    selection=AssetSelection.assets(*all_ingestion_assets),
 )
 
 defs = Definitions(

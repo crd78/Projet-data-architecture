@@ -1,4 +1,3 @@
-import os
 import unicodedata
 import re
 import json
@@ -6,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 from dagster import (
+    AssetSelection,
     AssetKey,
     AssetExecutionContext,
     Definitions,
@@ -110,10 +110,15 @@ def split_geo_point(df: pd.DataFrame) -> pd.DataFrame:
 def extract_arrondissement(df: pd.DataFrame) -> pd.DataFrame:
     for candidate in ["code_postal_arrondissement__commune", "code_postal", "arrondissement"]:
         if candidate in df.columns:
-            if candidate == "arrondissement" and df[candidate].dtype in ["int64", "float64"]:
-                df["arrondissement"] = df[candidate].astype("Int64")
+            numeric = pd.to_numeric(df[candidate], errors="coerce")
+            if (
+                candidate == "arrondissement"
+                and numeric.notna().any()
+                and numeric.dropna().between(1, 20).all()
+            ):
+                df["arrondissement"] = numeric.astype("Int64")
                 return df
-            series = df[candidate].astype(str).str.extract(r"750(\d{2})")[0]
+            series = df[candidate].astype("string").str.extract(r"750(\d{2})")[0]
             if series.notna().any():
                 df["arrondissement"] = pd.to_numeric(series, errors="coerce").astype("Int64")
                 return df
@@ -121,6 +126,8 @@ def extract_arrondissement(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def fix_multiheader(df: pd.DataFrame) -> pd.DataFrame:
+    if len(df) < 6:
+        raise ValueError("Fichier multi-entete trop court pour etre normalise")
     new_cols = df.iloc[4].tolist()
     df = df.iloc[5:].copy()
     df.columns = [str(c) for c in new_cols]
@@ -130,6 +137,13 @@ def fix_multiheader(df: pd.DataFrame) -> pd.DataFrame:
         if converted.notna().sum() > 0:
             df[col] = converted
     return df
+
+
+def date_columns_for(stem: str) -> list[str]:
+    for file_stem, columns in DATE_COLUMNS.items():
+        if stem == file_stem or stem.startswith(f"{file_stem}-"):
+            return columns
+    return []
 
 
 def preprocess_file(stem: str, df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
@@ -146,13 +160,13 @@ def preprocess_file(stem: str, df: pd.DataFrame) -> tuple[pd.DataFrame, int, int
             normalized = df[code_col].astype(str).str.strip().str.upper()
             df = df[normalized.isin(ALLOWED_CODEACT)]
 
-    for date_col in DATE_COLUMNS.get(stem, []):
+    for date_col in date_columns_for(stem):
         if date_col in df.columns:
             df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 
     for col in ["code_postal", "code_postal_arrondissement__commune"]:
         if col in df.columns:
-            df[col] = df[col].astype(str).str.replace(r"\.0$", "", regex=True)
+            df[col] = df[col].astype("string").str.replace(r"\.0$", "", regex=True)
 
     df = split_geo_point(df)
     df = df.drop_duplicates()
@@ -169,6 +183,9 @@ def _preprocess_kpi_dataset(context: AssetExecutionContext, kpi_key: str) -> Mat
 
     files      = list(source_dir.glob("*.parquet"))
     processed  = skipped = failed = rows_in = rows_out = 0
+
+    if not files:
+        raise FileNotFoundError(f"Aucun fichier parquet Silver source dans {source_dir}")
 
     for filepath in files:
         stem        = filepath.stem
@@ -194,6 +211,9 @@ def _preprocess_kpi_dataset(context: AssetExecutionContext, kpi_key: str) -> Mat
         except Exception as exc:
             failed += 1
             context.log.error(f"Erreur preprocessing {filepath.name}: {exc}")
+
+    if failed:
+        raise RuntimeError(f"{failed} fichier(s) Silver en erreur pour {kpi_key}")
 
     return MaterializeResult(
         metadata={
@@ -232,7 +252,7 @@ all_preprocessing_assets = [silver_kpi_impose, silver_kpi_personnalise]
 
 preprocessing_job = define_asset_job(
     name="silver_preprocessing_job",
-    selection=all_preprocessing_assets,
+    selection=AssetSelection.assets(*all_preprocessing_assets),
 )
 
 defs = Definitions(
