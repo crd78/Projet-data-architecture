@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from pathlib import Path
 try:
@@ -49,6 +50,11 @@ def activite_quartier():
     file_path = os.path.join(f"{BASE_DIR}/{parquet_folder}", file)
     df = pd.read_parquet(file_path)
 
+    file_google_place = "google_place.parquet"
+    file_google_place_path = os.path.join(f"{BASE_DIR}/{parquet_folder}", file_google_place)
+    df_google_place = pd.read_parquet(file_google_place_path)
+
+    df = df.merge(df_google_place, on=["arro", "qua"], how="left")
     print(len(df_quartiers), "len quartiers")
 
     df = df[colonnes]
@@ -262,44 +268,102 @@ def proprete_general():
     file_path = os.path.join(f"{BASE_DIR}/KPI_personnalise_silver", file)
     df = pd.read_parquet(file_path)
 
-    salete = ["Propreté", "Graffitis, tags, affiches et autocollants", "Mobiliers urbains", "Dégradation du sol"]
-    df = df[df["type_declaration"].isin(salete)]
+    def _process_proprete_batch(df_batch: pd.DataFrame) -> pd.DataFrame:
+        salete = [
+            "Propreté",
+            "Graffitis, tags, affiches et autocollants",
+            "Mobiliers urbains",
+            "Dégradation du sol",
+        ]
 
-    DECLARATION_INDEX = {
-        "Propreté": 1,
-        "Graffitis, tags, affiches et autocollants": 0.7,
-        "Mobiliers urbains": 0.9,
-        "Dégradation du sol": 1.2
-    }
+        df_batch = df_batch[df_batch["type_declaration"].isin(salete)]
+        df_batch = df_batch[df_batch["arrondissement"] <= 20]
 
-    df = df[df["arrondissement"] <= 20]
+        if df_batch.empty:
+            return df_batch
 
-    df[["num_quartier", "nom_quartier", "surface"]] = df.apply(
-        lambda row: point_dans_zone(
-            row["latitude"],
-            row["longitude"],
-            f"{BASE_DIR}/KPI_impose_silver/quartier_paris.parquet",
-            row["arrondissement"],
-            other_column="surface"
-        ),
-        axis=1,
-        result_type="expand"
-    )
+        df_batch[["num_quartier", "nom_quartier", "surface"]] = df_batch.apply(
+            lambda row: point_dans_zone(
+                row["latitude"],
+                row["longitude"],
+                f"{BASE_DIR}/KPI_impose_silver/quartier_paris.parquet",
+                row["arrondissement"],
+                other_column="surface",
+            ),
+            axis=1,
+            result_type="expand",
+        )
 
-    df = pd.get_dummies(df, columns=["type_declaration"], prefix="decl")
+        df_batch = pd.get_dummies(df_batch, columns=["type_declaration"], prefix="decl")
 
-    df = df.groupby(["arrondissement", "num_quartier", "nom_quartier", "surface"]).agg({
-        "decl_Propreté": "sum",
-        "decl_Graffitis, tags, affiches et autocollants": "sum",
-        "decl_Mobiliers urbains": "sum",
-        "decl_Dégradation du sol": "sum"
-    }).reset_index()
+        for col in [
+            "decl_Propreté",
+            "decl_Graffitis, tags, affiches et autocollants",
+            "decl_Mobiliers urbains",
+            "decl_Dégradation du sol",
+        ]:
+            if col not in df_batch.columns:
+                df_batch[col] = 0
 
-    print(df.head())
+        df_batch = df_batch.groupby(
+            ["arrondissement", "num_quartier", "nom_quartier", "surface"]
+        ).agg({
+            "decl_Propreté": "sum",
+            "decl_Graffitis, tags, affiches et autocollants": "sum",
+            "decl_Mobiliers urbains": "sum",
+            "decl_Dégradation du sol": "sum",
+        }).reset_index()
 
-    df["somme_poids_type"] = df["decl_Propreté"] + df["decl_Graffitis, tags, affiches et autocollants"] * 0.7 + df["decl_Mobiliers urbains"] * 0.9 + df["decl_Dégradation du sol"] * 1.2
-    df["proprete_score"] = df["somme_poids_type"] / df["surface"]
-    
+        df_batch["somme_poids_type"] = (
+            df_batch["decl_Propreté"]
+            + df_batch["decl_Graffitis, tags, affiches et autocollants"] * 0.7
+            + df_batch["decl_Mobiliers urbains"] * 0.9
+            + df_batch["decl_Dégradation du sol"] * 1.2
+        )
+        df_batch["proprete_score"] = df_batch["somme_poids_type"] / df_batch["surface"]
+        return df_batch
+
+    if df.empty:
+        conn = sqlite3.connect(db_path)
+        df.to_sql("proprete_general", conn, if_exists="replace", index=False)
+        conn.close()
+        return
+
+    batch_size = 5000
+    batches = [df.iloc[start:start + batch_size].copy() for start in range(0, len(df), batch_size)]
+
+    results = []
+    with ThreadPoolExecutor(max_workers=min(4, len(batches))) as executor:
+        futures = [executor.submit(_process_proprete_batch, batch) for batch in batches]
+        for future in as_completed(futures):
+            batch_result = future.result()
+            if not batch_result.empty:
+                results.append(batch_result)
+
+    if results:
+        df = pd.concat(results, ignore_index=True)
+        df = df.groupby(["arrondissement", "num_quartier", "nom_quartier", "surface"], as_index=False).agg({
+            "decl_Propreté": "sum",
+            "decl_Graffitis, tags, affiches et autocollants": "sum",
+            "decl_Mobiliers urbains": "sum",
+            "decl_Dégradation du sol": "sum",
+            "somme_poids_type": "sum",
+            "proprete_score": "mean",
+        })
+    else:
+        df = pd.DataFrame(columns=[
+            "arrondissement",
+            "num_quartier",
+            "nom_quartier",
+            "surface",
+            "decl_Propreté",
+            "decl_Graffitis, tags, affiches et autocollants",
+            "decl_Mobiliers urbains",
+            "decl_Dégradation du sol",
+            "somme_poids_type",
+            "proprete_score",
+        ])
+
     conn = sqlite3.connect(db_path)
     df.to_sql("proprete_general", conn, if_exists="replace", index=False)
 
