@@ -54,3 +54,25 @@ Le frontend est une interface interactive de data visualisation permettant d’e
   - interface responsive
 - Deck.gl
   - Rendu cartographique performant
+
+## Organisation des données
+
+![alt text](pipeline_final.png)
+
+Cette partie détaille la manière dont les données sont organisées, transformées et valorisées au sein de notre pipeline.
+
+L’objectif est de structurer des sources hétérogènes en un modèle cohérent et exploitable pour la visualisation.
+
+1. **Sources de donnnées**
+
+La pipeline s'appuie sur plusieurs sources provenant de [data.gouv.fr](data.gouv.fr), [Paris Open Data](https://opendata.paris.fr/pages/home/). Il s'agit soit de csv soit d'API. Voici les différentes sources pour chaque type:
+- **Logements**: 
+  - encadrement des loyers
+  - nombre de vente par type de logements
+- **Social**:
+  - Logements sociaux
+  - Revenus médian
+- **Parking**:
+  - stationnements parking public
+  - stationnements voie
+  - 
