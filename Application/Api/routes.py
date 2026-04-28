@@ -2,17 +2,6 @@ from fastapi import APIRouter, Request, Query
 
 router = APIRouter()
 
-@router.get("/test")
-def test_mongo(request: Request):
-    db = request.app.state.mongo_db
-    collections = db.list_collection_names()
-    return {
-        "status": "ok",
-        "db": db.name,
-        "collections_count": len(collections),
-        "collections_sample": collections[:10],
-    }
-
 @router.get("/median_price_per_arrondissement")
 def median_per_arrondissement(
         request: Request,
@@ -196,7 +185,7 @@ def accessibilite_loyer_revenu(
     income_annual = revenu_res[0]["income_annual_avg_of_iris_medians"]
     income_monthly = income_annual / 12.0
 
-    # 3. Formule de calcul de l'accessibilité : m² louable = (proportion du revenu * revenu_mensuel) / loyer_m2
+    # Formule de calcul de l'accessibilité : m² louable = (proportion du revenu * revenu_mensuel) / loyer_m2
     m2_accessible = (revenu_proportion * income_monthly) / loyer_m2 if loyer_m2 else None
 
     return {
@@ -208,4 +197,37 @@ def accessibilite_loyer_revenu(
         "m2_accessible": m2_accessible,
     }
 
+@router.get("/logements_sociaux_total")
+def logements_sociaux_total(
+    request: Request,
+    annee: int = Query(..., description="Année (annee_du_financement_agrement)"),
+    arrondissement: int | None = Query(None, ge=1, le=20, description="Optionnel"),
+):
+    db = request.app.state.mongo_db
+    col = db["logement_sociaux"]
+
+    match = {"annee_du_financement_agrement": annee}
+    if arrondissement is not None:
+        match["arrondissement"] = arrondissement
+
+    pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": None,
+            "logements_sociaux_finances_total": {"$sum": "$nombre_total_de_logements_finances"},
+            "programmes_count": {"$sum": 1},
+        }},
+        {"$project": {"_id": 0}},
+    ]
+
+    res = list(col.aggregate(pipeline))
+    if not res:
+        return {
+            "annee": annee,
+            "arrondissement": arrondissement,
+            "logements_sociaux_finances_total": 0,
+            "programmes_count": 0,
+        }
+
+    return {"annee": annee, "arrondissement": arrondissement, **res[0]}
    
