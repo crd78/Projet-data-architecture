@@ -20,10 +20,6 @@ def migrate_table(conn, mongo_db, table):
             break
         for row in rows:
             doc = dict(row)
-
-            # if "id" in doc and doc["id"] is not None:
-            #     doc["_id"] = doc.pop("id")
-
             batch.append(doc)
 
         if batch:
