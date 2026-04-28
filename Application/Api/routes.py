@@ -23,10 +23,9 @@ def median_per_arrondissement(
     collection = db["location_arrondissement"]
     pipeline = [
         {"$match": {
-            "$or": [
-                {"annee": annee, "secteurs_geographiques": arrondissement},
-            ],
-            "loyers_de_reference": {"$type": "number"},
+            "annee": annee,
+            "secteurs_geographiques": arrondissement,
+            "nombre_de_pieces_principales": {"$type": "number"},
         }},
         {"$group": {
             "_id": None,
@@ -53,5 +52,67 @@ def median_per_arrondissement(
         **result[0],
     }
     
-    
-    
+@router.get("/repartition_types_logements")
+def repartition_types_logements(
+    request: Request,
+    annee: int = Query(..., ge=2019, le=2023, description="Année"),
+    arrondissement: int = Query(..., ge=1, le=20, description="Arrondissement de Paris"),
+):
+    db = request.app.state.mongo_db
+    collection = db["location_arrondissement"]
+
+    pipeline = [
+        {
+            "$match": {
+                "annee": annee,
+                "secteurs_geographiques": arrondissement,
+                "loyers_de_reference": {"$type": "number"},
+            }
+        },
+        # Comptage par nombre de pièces
+        {"$group": {"_id": "$nombre_de_pieces_principales", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+        # Total
+        {
+            "$group": {
+                "_id": None,
+                "total": {"$sum": "$count"},
+                "items": {"$push": {"pieces": "$_id", "count": "$count"}},
+            }
+        },
+        # Calcul des pourcentages
+        {
+            "$project": {
+                "_id": 0,
+                "total": 1,
+                    "logements_repartition": {
+                    "$map": {
+                        "input": "$items",
+                        "as": "it",
+                        "in": {
+                            "type": {"$concat": ["T", {"$toString": "$$it.pieces"}]},
+                            "pieces": "$$it.pieces",
+                            "count": "$$it.count",
+                            "percentage": {
+                                "$round": [
+                                    {"$multiply": [{"$divide": ["$$it.count", "$total"]}, 100]},
+                                    2,
+                                ]
+                            },
+                        },
+                    }
+                },
+            }
+        },
+    ]
+
+    result = list(collection.aggregate(pipeline))
+    if not result:
+        return {
+            "annee": annee,
+            "arrondissement": arrondissement,
+            "total": 0,
+            "logements_repartition": [],
+        }
+
+    return {"annee": annee, "arrondissement": arrondissement, **result[0]}

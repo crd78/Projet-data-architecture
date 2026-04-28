@@ -16,7 +16,7 @@ def startup():
 def shutdown():
     app.state.mongo_client.close()
     
-app.include_router(router, prefix="/api")
+app.include_router(router, prefix="/kpi")
 
 @app.get("/")
 def root():
