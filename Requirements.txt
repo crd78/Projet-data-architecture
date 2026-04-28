@@ -4,3 +4,4 @@ pandas
 geopandas
 pyarrow
 openpyxl
+pymongo
