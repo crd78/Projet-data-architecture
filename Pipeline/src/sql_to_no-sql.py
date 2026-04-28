@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # Constants
     PIPELINE_DIR = Path(__file__).resolve().parent.parent
     BASE_DIR = PIPELINE_DIR / "datasets_finaux"
-    DB_PATH = PIPELINE_DIR / "paris_immobilier.db"
+    DB_PATH = BASE_DIR / "paris_immobilier.db"
     MONGO_URI = "mongodb+srv://root:root@cluster0.x2olcfn.mongodb.net/?appName=Cluster0"
     DB_NAME = "paris_immobilier"
     BATCH_SIZE = 5000
