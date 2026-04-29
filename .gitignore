@@ -11,3 +11,4 @@ Pipeline/dagster_home/
 Application/Api/__pycache__/
 Application/Front/urban-data-explorer/node_modules/
 Application/Front/urban-data-explorer/.env
+Application/__pycache__/
