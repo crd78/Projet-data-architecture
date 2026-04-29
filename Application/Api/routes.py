@@ -1,4 +1,8 @@
 from fastapi import APIRouter, Request, Query
+from .utils import extract_polygon
+from shapely.geometry import Point, Polygon
+from shapely.ops import transform
+import pyproj
 
 router = APIRouter()
 
@@ -300,3 +304,288 @@ def logements_sociaux_total(
         }
 
     return {"annee": annee, "arrondissement": arrondissement, **res[0]}
+
+
+@router.get("/nuisance_sonore")
+def nuisance_sonore(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+    radius: float = Query(0.01),
+):
+
+    project_to_meters = pyproj.Transformer.from_crs(
+        "EPSG:4326", "EPSG:3857", always_xy=True
+    ).transform
+    project_to_wgs84 = pyproj.Transformer.from_crs(
+        "EPSG:3857", "EPSG:4326", always_xy=True
+    ).transform
+    db = request.app.state.mongo_db
+    collection = db["nuisance_sonore"]
+
+    point = Point(longitude, latitude)
+
+    docs = collection.find({})
+
+    selected = []
+
+    for doc in docs:
+        geo_shape = doc.get("geo_shape")
+        if not geo_shape:
+            continue
+
+        coords = extract_polygon(geo_shape)
+        if not coords or len(coords) < 3:
+            continue
+
+        try:
+            point = Point(longitude, latitude)
+
+            # projeter en mètres
+            poly = Polygon(coords)
+            buffer = point.buffer(radius)
+            if poly.intersects(buffer):
+                selected.append(doc)
+        except Exception:
+            continue
+
+    if not selected:
+        return {
+            "count": 0,
+            "message": "Aucun polygone ne contient ce point",
+        }
+
+    # calcul des moyennes
+    def avg(field):
+        values = [
+            d.get(field) for d in selected if isinstance(d.get(field), (int, float))
+        ]
+        return round(sum(values) / len(values), 2) if values else None
+
+    return {
+        "count": len(selected),
+        "avg_coef_nature_travaux": avg("coef_nature_travaux"),
+        "avg_coef_encombrant": avg("coef_encombrant"),
+        "avg_nuisance_sonore_score": avg("nuisance_sonore_score"),
+        "avg_db_base": avg("db_base"),
+    }
+
+
+@router.get("/disponibilite_stationnement")
+def disponibilite_stationnement(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+    radius: float = Query(0.01),
+):
+    db = request.app.state.mongo_db
+
+    quartiers_col = db["quartiers_paris"]
+    parking_col = db["disponibilite_stationnement"]
+
+    point = Point(longitude, latitude)
+    buffer = point.buffer(radius)
+
+    quartiers_proches = []
+
+    for q in quartiers_col.find({}):
+        geometry = q.get("geometry")
+        if not geometry:
+            continue
+
+        try:
+            coords = extract_polygon(geometry)
+            if not coords or len(coords) < 3:
+                continue
+
+            poly = Polygon(coords)
+
+            if poly.intersects(buffer):
+                quartiers_proches.append(q["l_qu"])
+
+        except Exception:
+            continue
+
+    if not quartiers_proches:
+        return {
+            "count_quartiers": 0,
+            "message": "Aucun quartier dans le périmètre",
+        }
+
+    docs = parking_col.find({"nom_quartier": {"$in": quartiers_proches}})
+
+    total_places_voirie = 0
+    total_places_parking_public = 0
+    total_trafic = 0
+    total_score = 0
+    count = 0
+
+    for d in docs:
+        total_places_voirie += d.get("nombre_places_voirie", 0) or 0
+        total_places_parking_public += d.get("nombre_places_parking_public", 0) or 0
+        total_trafic += d.get("indice_trafic_quartier", 0) or 0
+        total_score += d.get("disponibilite_stationnement_score", 0) or 0
+        count += 1
+
+    if count == 0:
+        return {
+            "quartiers": quartiers_proches,
+            "message": "Aucune donnée stationnement",
+        }
+
+    return {
+        "quartiers": quartiers_proches,
+        "count_quartiers": len(quartiers_proches),
+        "nombre_places_voirie": total_places_voirie,
+        "nombre_places_parking_public": total_places_parking_public,
+        "indice_trafic_quartier_moyen": round(total_trafic / count, 2),
+        "disponibilite_stationnement_score_moyen": round(total_score / count, 2),
+    }
+
+
+@router.get("/activite_quartier")
+def activite_quartier(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+    radius: float = Query(0.01),
+):
+    db = request.app.state.mongo_db
+
+    quartiers_col = db["quartiers_paris"]
+    activite_col = db["activite_quartier"]
+
+    point = Point(longitude, latitude)
+    buffer = point.buffer(radius)
+
+    quartiers_proches = []
+
+    for q in quartiers_col.find({}):
+        geometry = q.get("geometry")
+        if not geometry:
+            continue
+
+        try:
+            coords = extract_polygon(geometry)
+            if not coords or len(coords) < 3:
+                continue
+
+            poly = Polygon(coords)
+
+            if poly.intersects(buffer):
+                quartiers_proches.append(q["l_qu"])
+
+        except Exception:
+            continue
+
+    if not quartiers_proches:
+        return {
+            "count_quartiers": 0,
+            "message": "Aucun quartier dans le périmètre",
+        }
+
+    docs = activite_col.find({"nom_quartier": {"$in": quartiers_proches}})
+
+    total_score = 0
+    total_gp_rating = 0
+    total_gp_user_rating_count = 0
+    total_open = 0
+    total_close = 0
+    count = 0
+
+    for d in docs:
+        total_score += d.get("activite_quartier_score", 0) or 0
+        total_gp_rating += d.get("gp_rating", 0) or 0
+        total_gp_user_rating_count += d.get("gp_user_rating_count", 0) or 0
+        total_open += d.get("open", 0) or 0
+        total_close += d.get("close", 0) or 0
+        count += 1
+
+    if count == 0:
+        return {
+            "quartiers": quartiers_proches,
+            "message": "Aucune donnée activité",
+        }
+
+    return {
+        "quartiers": quartiers_proches,
+        "count_quartiers": len(quartiers_proches),
+        "activite_quartier_score_moyen": round(total_score / count, 2),
+        "gp_rating_moyen": round(total_gp_rating / count, 2),
+        "gp_user_rating_count_total": total_gp_user_rating_count,
+        "open_total": total_open,
+        "close_total": total_close,
+    }
+
+
+@router.get("/proprete_generale")
+def proprete_generale(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+    radius: float = Query(0.01),  # ~1km
+):
+    db = request.app.state.mongo_db
+
+    quartiers_col = db["quartiers_paris"]
+    proprete_col = db["proprete_general"]
+
+    point = Point(longitude, latitude)
+    buffer = point.buffer(radius)
+
+    quartiers_proches = []
+
+    for q in quartiers_col.find({}):
+        geometry = q.get("geometry")
+        if not geometry:
+            continue
+
+        try:
+            coords = extract_polygon(geometry)
+            if not coords or len(coords) < 3:
+                continue
+
+            poly = Polygon(coords)
+
+            if poly.intersects(buffer):
+                name = q.get("l_qu")
+
+                if name and name not in quartiers_proches:
+                    quartiers_proches.append(name)
+
+        except Exception:
+            continue
+
+    if not quartiers_proches:
+        return {
+            "count_quartiers": 0,
+            "message": "Aucun quartier dans le périmètre",
+        }
+
+    docs = proprete_col.find({"nom_quartier": {"$in": quartiers_proches}})
+
+    total_score = 0
+    count = 0
+    decl_totaux = {}
+
+    for d in docs:
+        total_score += d.get("proprete_score", 0) or 0
+
+        for k, v in d.items():
+            if k.startswith("decl_"):
+                decl_totaux[k] = decl_totaux.get(k, 0) + (v or 0)
+
+        count += 1
+
+    if count == 0:
+        return {
+            "quartiers": quartiers_proches,
+            "message": "Aucune donnée propreté",
+        }
+
+    return {
+        "quartiers": quartiers_proches,
+        "count_quartiers": len(quartiers_proches),
+        "proprete_score_moyen": round(total_score / count, 6),
+        "decl_totaux": decl_totaux,
+    }
