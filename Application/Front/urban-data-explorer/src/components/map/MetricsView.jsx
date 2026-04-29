@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+
 const tabs = [
   { id: "temporal", label: "Temporel" },
   { id: "territory", label: "Territoire" },
@@ -101,6 +102,12 @@ function FilterView({
   medianKpi,
   medianKpiLoading,
   medianKpiError,
+  repartitionKpi,
+  repartitionLoading,
+  repartitionError,
+  logementsSociauxKpi,
+  logementsSociauxLoading,
+  logementsSociauxError,
 }) {
   const [activeTab, setActiveTab] = useState("temporal");
 
@@ -182,16 +189,43 @@ function FilterView({
         <div className="space-y-4">
           <KpiCard
             label="Loyer médian"
-            value={rentValue}
-            suffix={formattedRent ? "€/m²" : ""}
-            status={selectedArrondissement === "all" ? "Choix requis" : "API"}
-            caption={
-              selectedArrondissement === "all"
-                ? "Sélectionnez un arrondissement pour interroger le KPI médian."
-                : `Lecture du datamart pour ${districtLabel}, année ${selectedYear}.`
+            value={
+              medianKpiLoading
+                ? "..."
+                : medianKpiError
+                ? "Erreur"
+                : medianKpi?.median_price_loyer == null && medianKpi?.median_price_achat == null
+                ? "Pas de données"
+                : medianKpi?.median_price_loyer ?? medianKpi?.median_price_achat
             }
+            suffix="€"
+            caption="Loyer médian annuel ou prix d'achat médian."
             loading={medianKpiLoading}
             error={medianKpiError}
+          />
+
+          {repartitionLoading ? (
+            <span>Chargement...</span>
+          ) : repartitionError ? (
+            <span>Erreur</span>
+          ) : !repartitionKpi?.logements_repartition?.length ? (
+            <span>Pas de données</span>
+          ) : null}
+
+          <KpiCard
+            label="Logements sociaux financés"
+            value={
+              logementsSociauxLoading
+                ? "..."
+                : logementsSociauxError
+                ? "Erreur"
+                : logementsSociauxKpi?.logements_sociaux_finances_total == null
+                ? "Pas de données"
+                : logementsSociauxKpi?.logements_sociaux_finances_total
+            }
+            caption="Nombre total de logements sociaux financés."
+            loading={logementsSociauxLoading}
+            error={logementsSociauxError}
           />
 
           <KpiCard

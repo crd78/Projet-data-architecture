@@ -35,7 +35,9 @@ function DashboardPage() {
   const { data: medianKpi, loading: medianKpiLoading, error: medianKpiError } =
     useMedianKpi(selectedYear, arrondissementNumber);
 
-  // Logements sociaux financés 
+  const { data: repartitionKpi, loading: repartitionLoading, error: repartitionError } =
+    useRepartitionKpi(selectedYear, arrondissementNumber);
+
   const { data: logementsSociauxKpi, loading: logementsSociauxLoading, error: logementsSociauxError } =
     useLogementsSociauxKpi(selectedYear, arrondissementNumber);
 
@@ -185,6 +187,12 @@ function DashboardPage() {
               medianKpi={medianKpi}
               medianKpiLoading={medianKpiLoading}
               medianKpiError={medianKpiError}
+              repartitionKpi={repartitionKpi}
+              repartitionLoading={repartitionLoading}
+              repartitionError={repartitionError}
+              logementsSociauxKpi={logementsSociauxKpi}
+              logementsSociauxLoading={logementsSociauxLoading}
+              logementsSociauxError={logementsSociauxError}
             />
 
             <div className="rounded-lg border border-[#e0e3e5] bg-[#f2f4f6] p-4">
