@@ -18,11 +18,15 @@ function DashboardPage() {
   const [selectedArrondissement, setSelectedArrondissement] = useState("all");
   
   const arrondissementNumber = geoCodeToArrNumber(selectedArrondissement);
-  
+  const [priceMode, setPriceMode] = useState("location");
 
   // Prix médian du m2 en location
-  const { data: medianKpi, loading: medianKpiLoading, error: medianKpiError } =
-    useMedianKpi(selectedYear, arrondissementNumber);
+  const { data: medianLocation, loading: medianLocationLoading, error: medianLocationError } =
+    useMedianKpi(selectedYear, arrondissementNumber, "location");
+  
+  // Prix médian du m2 pour un achat
+  const { data: medianAchat, loading: medianAchatLoading, error: medianAchatError } =
+    useMedianKpi(selectedYear, arrondissementNumber, "achat");
   
   // Répartion des types de logements
   const { data: repartitionKpi, loading: repartitionLoading, error: repartitionError } =
@@ -34,7 +38,6 @@ function DashboardPage() {
 
   const handleArrondissementChange = (nextValue) => {
     setSelectedArrondissement(nextValue);
-    console.log("Arrondissement sélectionné:", nextValue);
   };
 
   return (
@@ -71,9 +74,14 @@ function DashboardPage() {
               selectedYear={selectedYear}
               selectedArrondissement={selectedArrondissement}
               arrondissementNumber={arrondissementNumber}
-              medianKpi={medianKpi}
-              medianKpiLoading={medianKpiLoading}
-              medianKpiError={medianKpiError}
+              priceMode={priceMode}
+              onPriceModeChange={setPriceMode}
+              medianLocation={medianLocation}
+              medianLocationLoading={medianLocationLoading}
+              medianLocationError={medianLocationError}
+              medianAchat={medianAchat}
+              medianAchatLoading={medianAchatLoading}
+              medianAchatError={medianAchatError}
               repartitionKpi={repartitionKpi}
               repartitionLoading={repartitionLoading}
               repartitionError={repartitionError}

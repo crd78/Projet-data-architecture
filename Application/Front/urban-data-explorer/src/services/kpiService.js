@@ -1,9 +1,13 @@
 import { getJson } from "./apiClient";
 
-export function fetchMedianPricePerArrondissement(annee, arrondissement, signal) {
+export function fetchMedianPricePerArrondissement(annee, arrondissement, mode, signal) {
   return getJson(
     "/kpi/median_price_per_arrondissement",
-    { annee: String(annee), arrondissement: String(arrondissement) },
+    {
+      annee: String(annee),
+      arrondissement: String(arrondissement),
+      mode: mode || "location",
+    },
     { signal }
   );
 }

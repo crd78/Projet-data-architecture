@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchMedianPricePerArrondissement } from "../services/kpiService";
 
-function useMedianKpi(selectedYear, arrondissementNumber) {
+function useMedianKpi(selectedYear, arrondissementNumber, mode = "location") {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -23,6 +23,7 @@ function useMedianKpi(selectedYear, arrondissementNumber) {
       const payload = await fetchMedianPricePerArrondissement(
         selectedYear,
         arrondissementNumber,
+        mode,
         controller.signal
       );
 
@@ -38,7 +39,7 @@ function useMedianKpi(selectedYear, arrondissementNumber) {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [selectedYear, arrondissementNumber]);
+  }, [selectedYear, arrondissementNumber, mode]);
 
   return { data, loading, error };
 }

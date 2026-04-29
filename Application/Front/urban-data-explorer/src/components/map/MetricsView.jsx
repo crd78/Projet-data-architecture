@@ -4,9 +4,12 @@ function FilterView({
   selectedYear,
   selectedArrondissement,
   arrondissementNumber,
-  medianKpi,
-  medianKpiLoading,
-  medianKpiError,
+  medianLocation,
+  medianLocationLoading,
+  medianLocationError,
+  medianAchat,
+  medianAchatLoading,
+  medianAchatError,
   repartitionKpi,
   repartitionLoading,
   repartitionError,
@@ -45,7 +48,7 @@ function FilterView({
         {activeTab === "temporal" && (
           <>
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
-              <div className="font-semibold">Loyer médian (€/m²)</div>
+              <div className="font-semibold">Prix médian (€/m²)</div>
 
               {selectedArrondissement === "all" && (
                 <div className="mt-2 text-sm text-slate-500">
@@ -53,17 +56,39 @@ function FilterView({
                 </div>
               )}
 
-              {medianKpiLoading && (
-                <div className="mt-2 text-sm text-slate-500">Chargement…</div>
-              )}
+              {selectedArrondissement !== "all" && (
+                <div className="mt-3 grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-slate-500">Location</div>
+                    {medianLocationLoading && (
+                      <div className="text-sm text-slate-500">Chargement…</div>
+                    )}
+                    {!!medianLocationError && (
+                      <div className="text-sm text-red-600">Erreur : {medianLocationError}</div>
+                    )}
+                    {!medianLocationLoading &&
+                      !medianLocationError && (
+                        <div className="text-2xl font-bold text-blue-900">
+                          {medianLocation?.median_price_loyer ?? "—"}
+                        </div>
+                    )}
+                  </div>
 
-              {!!medianKpiError && (
-                <div className="mt-2 text-sm text-red-600">Erreur : {medianKpiError}</div>
-              )}
-
-              {!medianKpiLoading && !medianKpiError && selectedArrondissement !== "all" && (
-                <div className="mt-3 text-2xl font-bold text-blue-900">
-                  {medianKpi?.median_price_loyer ?? "Pas de donnée"}
+                  <div>
+                    <div className="text-xs text-slate-500">Achat</div>
+                    {medianAchatLoading && (
+                      <div className="text-sm text-slate-500">Chargement…</div>
+                    )}
+                    {!!medianAchatError && (
+                      <div className="text-sm text-red-600">Erreur : {medianAchatError}</div>
+                    )}
+                    {!medianAchatLoading &&
+                      !medianAchatError && (
+                        <div className="text-2xl font-bold text-blue-900">
+                          {medianAchat?.median_price_achat ?? "—"}
+                        </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -133,6 +158,7 @@ function FilterView({
                   </div>
               )}
             </div>
+
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
               Metrics 4 : Score de nuisance sonore
             </div>
