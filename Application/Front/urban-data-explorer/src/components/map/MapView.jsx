@@ -11,7 +11,7 @@ const INITIAL_VIEW_STATE = {
   zoom: 11
 };
 
-function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
+function MapView({ geoJsonUrl, selectedArrondissement = "all", onMapClick}) {
   const { data: arrondissementsData } = useGeoJsonData(geoJsonUrl);
   const { data: roadData } = useGeoJsonData("/data/voies.geojson");
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
@@ -62,12 +62,12 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
     if (!info?.coordinate) return;
 
     const [longitude, latitude] = info.coordinate;
+    const nextPosition = { longitude, latitude };
 
-    setClickedPosition({ longitude, latitude });
-    console.log("Coordonnees :", {
-      longitude,
-      latitude
-    });
+    setClickedPosition(nextPosition);
+    onMapClick?.(nextPosition);
+
+    console.log("Coordonnees :", nextPosition);
   };
 
   return (

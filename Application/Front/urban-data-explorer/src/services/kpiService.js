@@ -39,3 +39,14 @@ export function fetchAccessibiliteLoyerRevenu(annee, arrondissement, revenuPropo
     { signal }
   );
 }
+
+export function fetchDisponibiliteStationnement(longitude, latitude, signal) {
+  return getJson(
+    "/kpi/disponibilite_stationnement",
+    {
+      longitude: String(longitude),
+      latitude: String(latitude),
+    },
+    { signal }
+  );
+}

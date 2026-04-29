@@ -7,6 +7,7 @@ import MapView from "../components/map/MapView";
 import FilterView from "../components/map/MetricsView";
 import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
+import useDisponibiliteStationnement from "../hooks/useDisponibiliteStationnement";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -19,6 +20,7 @@ function DashboardPage() {
   const [selectedArrondissement, setSelectedArrondissement] = useState("all");
   const [selectedArrondissementB, setSelectedArrondissementB] = useState("all");
   const [revenuProportion, setRevenuProportion] = useState(0.4);
+  const [clickedPosition, setClickedPosition] = useState(null);
 
   const arrondissementNumber = geoCodeToArrNumber(selectedArrondissement);
   const arrondissementNumberB = geoCodeToArrNumber(selectedArrondissementB);
@@ -61,6 +63,13 @@ function DashboardPage() {
     setSelectedArrondissementB(nextValue);
   };
 
+  // Disponibilité stationnement
+  const {
+    data: disponibiliteStationnementKpi,
+    loading: disponibiliteStationnementLoading,
+    error: disponibiliteStationnementError,
+  } = useDisponibiliteStationnement(clickedPosition);
+
   return (
     <main className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white/80">
@@ -75,7 +84,49 @@ function DashboardPage() {
             <MapView
               geoJsonUrl="/data/communes.geojson"
               selectedArrondissement={selectedArrondissement}
+              onMapClick={setClickedPosition}
             />
+            <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-[360px] max-w-[calc(100%-2rem)]">
+              <div className="pointer-events-auto rounded-2xl border border-blue-100 bg-white/95 p-4 shadow-lg backdrop-blur">
+                <div className="text-sm font-semibold text-blue-900">
+                  Disponibilité stationnement
+                </div>
+
+                {!clickedPosition && (
+                  <div className="mt-2 text-sm text-slate-500">
+                    Clique sur la carte pour calculer la KPI.
+                  </div>
+                )}
+
+                {disponibiliteStationnementLoading && (
+                  <div className="mt-3 text-sm text-slate-500">Chargement…</div>
+                )}
+
+                {!!disponibiliteStationnementError && (
+                  <div className="mt-3 text-sm text-red-600">
+                    Erreur : {disponibiliteStationnementError}
+                  </div>
+                )}
+
+                {!disponibiliteStationnementLoading &&
+                  !disponibiliteStationnementError &&
+                  disponibiliteStationnementKpi?.message && (
+                    <div className="mt-3 text-sm text-slate-500">
+                      {disponibiliteStationnementKpi.message}
+                    </div>
+                  )}
+
+                {!disponibiliteStationnementLoading &&
+                  !disponibiliteStationnementError &&
+                  disponibiliteStationnementKpi?.disponibilite_stationnement_score_moyen !== undefined && (
+                    <div className="mt-3 flex items-baseline gap-2">
+                      <div className="text-sm font-medium text-slate-600">
+                        Score stationnement: <span className="font-bold text-blue-600">{disponibiliteStationnementKpi.disponibilite_stationnement_score_moyen}</span>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
 
             <div className="pointer-events-none absolute right-4 top-4 z-30 w-[460px] max-w-[calc(100%-2rem)] space-y-3">
               <div className="pointer-events-auto">
