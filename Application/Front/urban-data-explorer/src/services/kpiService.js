@@ -61,3 +61,14 @@ export function fetchActiviteQuartier(longitude, latitude, signal) {
     { signal }
   );
 }
+
+export function fetchPropreteGenerale(longitude, latitude, signal) {
+  return getJson(
+    "/kpi/proprete_generale",
+    {
+      longitude: String(longitude),
+      latitude: String(latitude),
+    },
+    { signal }
+  );
+}

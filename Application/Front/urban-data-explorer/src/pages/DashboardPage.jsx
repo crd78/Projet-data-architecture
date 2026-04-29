@@ -9,6 +9,7 @@ import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
 import useDisponibiliteStationnement from "../hooks/useDisponibiliteStationnement";
 import useActiviteQuartier from "../hooks/useActiviteQuartier";
+import usePropreteGenerale from "../hooks/usePropreteGenerale";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -77,6 +78,13 @@ function DashboardPage() {
     loading: activiteQuartierLoading,
     error: activiteQuartierError,
   } = useActiviteQuartier(clickedPosition);
+
+  // Score propreté générale
+  const {
+    data: propreteGeneraleKpi,
+    loading: propreteGeneraleLoading,
+    error: propreteGeneraleError,
+  } = usePropreteGenerale(clickedPosition);
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -159,6 +167,34 @@ function DashboardPage() {
                       activiteQuartierKpi?.activite_quartier_score_moyen !== undefined && (
                         <div className="mt-2 text-lg font-bold text-blue-900">
                           {activiteQuartierKpi.activite_quartier_score_moyen}
+                        </div>
+                      )}
+                  </div>
+                )}
+                {/* Score propreté */}
+                {clickedPosition && (
+                  <div className="mt-4 border-t border-blue-100 pt-3">
+                    <div className="text-xs font-medium text-slate-600">Propreté générale</div>
+                    {propreteGeneraleLoading && (
+                      <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+                    )}
+                    {!!propreteGeneraleError && (
+                      <div className="mt-2 text-sm text-red-600">
+                        Erreur : {propreteGeneraleError}
+                      </div>
+                    )}
+                    {!propreteGeneraleLoading &&
+                      !propreteGeneraleError &&
+                      propreteGeneraleKpi?.message && (
+                        <div className="mt-2 text-xs text-slate-500">
+                          {propreteGeneraleKpi.message}
+                        </div>
+                      )}
+                    {!propreteGeneraleLoading &&
+                      !propreteGeneraleError &&
+                      propreteGeneraleKpi?.proprete_score_moyen !== undefined && (
+                        <div className="mt-2 text-lg font-bold text-blue-900">
+                          {propreteGeneraleKpi.proprete_score_moyen}
                         </div>
                       )}
                   </div>
