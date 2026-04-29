@@ -1,26 +1,49 @@
 import { useState } from "react";
+import ArrondissementFilterView from "./ArrondissementFilterView";
 
 function FilterView({
   selectedYear,
   selectedArrondissement,
   arrondissementNumber,
+  selectedArrondissementB,
+  onArrondissementBChange,
+  revenuProportion,
+  onRevenuProportionChange,
+
   medianLocation,
   medianLocationLoading,
   medianLocationError,
   medianAchat,
   medianAchatLoading,
   medianAchatError,
+
+  medianLocationB,
+  medianLocationLoadingB,
+  medianLocationErrorB,
+  medianAchatB,
+  medianAchatLoadingB,
+  medianAchatErrorB,
+
   repartitionKpi,
   repartitionLoading,
   repartitionError,
+  repartitionKpiB,
+  repartitionLoadingB,
+  repartitionErrorB,
+
   logementsSociauxKpi,
   logementsSociauxLoading,
   logementsSociauxError,
-  revenuProportion,
-  onRevenuProportionChange,
+  logementsSociauxKpiB,
+  logementsSociauxLoadingB,
+  logementsSociauxErrorB,
+
   accessibiliteKpi,
   accessibiliteLoading,
   accessibiliteError,
+  accessibiliteKpiB,
+  accessibiliteLoadingB,
+  accessibiliteErrorB,
 }) {
   const [activeTab, setActiveTab] = useState("temporal");
 
@@ -38,6 +61,13 @@ function FilterView({
             className={`${tabButtonBase} ${activeTab === "temporal" ? tabActive : tabInactive}`}
           >
             KPI temporels
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("comparison")}
+            className={`${tabButtonBase} ${activeTab === "comparison" ? tabActive : tabInactive}`}
+          >
+            Comparaison
           </button>
           <button
             type="button"
@@ -235,6 +265,86 @@ function FilterView({
                     {accessibiliteKpi.m2_accessible}
                   </div>
               )}
+            </div>
+          </>
+        )}
+
+        {activeTab === "comparison" && (
+          <>
+            <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700 space-y-3">
+              <div className="font-semibold">Comparer deux arrondissements</div>
+              <div className="grid grid-cols-2 gap-3">
+                <ArrondissementFilterView value={selectedArrondissement} onChange={() => {}} />
+                <ArrondissementFilterView value={selectedArrondissementB} onChange={onArrondissementBChange} />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
+              <div className="font-semibold">Prix médian (€/m²)</div>
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-slate-500">A</div>
+                  <div className="text-sm text-slate-500">Location / Achat</div>
+                  <div className="text-lg font-bold text-blue-900">
+                    {medianLocation?.median_price_loyer ?? "—"} / {medianAchat?.median_price_achat ?? "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">B</div>
+                  <div className="text-sm text-slate-500">Location / Achat</div>
+                  <div className="text-lg font-bold text-blue-900">
+                    {medianLocationB?.median_price_loyer ?? "—"} / {medianAchatB?.median_price_achat ?? "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
+              <div className="font-semibold">Logements sociaux financés</div>
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div className="text-2xl font-bold text-blue-900">
+                  {logementsSociauxKpi?.logements_sociaux_finances_total ?? "—"}
+                </div>
+                <div className="text-2xl font-bold text-blue-900">
+                  {logementsSociauxKpiB?.logements_sociaux_finances_total ?? "—"}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
+              <div className="font-semibold">Revenu médian mensuel</div>
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div className="text-2xl font-bold text-blue-900">
+                  {accessibiliteKpi?.income_monthly ?? "—"}
+                </div>
+                <div className="text-2xl font-bold text-blue-900">
+                  {accessibiliteKpiB?.income_monthly ?? "—"}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
+              <div className="font-semibold">Accessibilité (m² louables)</div>
+              <div className="mt-2 text-xs text-slate-500">
+                Part du revenu utilisée : {Math.round(revenuProportion * 100)}%
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="0.8"
+                step="0.05"
+                value={revenuProportion}
+                onChange={(e) => onRevenuProportionChange(Number(e.target.value))}
+                className="mt-1 w-full accent-blue-700"
+              />
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div className="text-2xl font-bold text-blue-900">
+                  {accessibiliteKpi?.m2_accessible ?? "—"}
+                </div>
+                <div className="text-2xl font-bold text-blue-900">
+                  {accessibiliteKpiB?.m2_accessible ?? "—"}
+                </div>
+              </div>
             </div>
           </>
         )}

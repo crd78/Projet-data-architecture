@@ -1,12 +1,12 @@
 import { useState } from "react";
 import useMedianKpi from "../hooks/useMedianKpi";
 import useRepartitionKpi from "../hooks/useRepartitionKpi";
+import useLogementsSociauxKpi from "../hooks/useLogementsSociauxKpi";
+import useAccessibiliteKpi from "../hooks/useAccessibiliteKpi";
 import MapView from "../components/map/MapView";
 import FilterView from "../components/map/MetricsView";
 import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
-import useLogementsSociauxKpi from "../hooks/useLogementsSociauxKpi";
-import useAccessibiliteKpi from "../hooks/useAccessibiliteKpi";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -17,34 +17,48 @@ function geoCodeToArrNumber(code) {
 function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(2020);
   const [selectedArrondissement, setSelectedArrondissement] = useState("all");
-  
-  const arrondissementNumber = geoCodeToArrNumber(selectedArrondissement);
-  const [priceMode, setPriceMode] = useState("location");
-
+  const [selectedArrondissementB, setSelectedArrondissementB] = useState("all");
   const [revenuProportion, setRevenuProportion] = useState(0.4);
 
-  // Prix médian du m2 en location
+  const arrondissementNumber = geoCodeToArrNumber(selectedArrondissement);
+  const arrondissementNumberB = geoCodeToArrNumber(selectedArrondissementB);
+
+  // Prix median location/achat (A)
   const { data: medianLocation, loading: medianLocationLoading, error: medianLocationError } =
     useMedianKpi(selectedYear, arrondissementNumber, "location");
-  
-  // Prix médian du m2 pour un achat
   const { data: medianAchat, loading: medianAchatLoading, error: medianAchatError } =
     useMedianKpi(selectedYear, arrondissementNumber, "achat");
-  
-  // Répartion des types de logements
+
+  // Prix median location/achat (B)
+  const { data: medianLocationB, loading: medianLocationLoadingB, error: medianLocationErrorB } =
+    useMedianKpi(selectedYear, arrondissementNumberB, "location");
+  const { data: medianAchatB, loading: medianAchatLoadingB, error: medianAchatErrorB } =
+    useMedianKpi(selectedYear, arrondissementNumberB, "achat");
+
+  // Repartition (A/B)
   const { data: repartitionKpi, loading: repartitionLoading, error: repartitionError } =
     useRepartitionKpi(selectedYear, arrondissementNumber);
+  const { data: repartitionKpiB, loading: repartitionLoadingB, error: repartitionErrorB } =
+    useRepartitionKpi(selectedYear, arrondissementNumberB);
 
-  // Logements sociaux financés 
+  // Logements sociaux (A/B)
   const { data: logementsSociauxKpi, loading: logementsSociauxLoading, error: logementsSociauxError } =
     useLogementsSociauxKpi(selectedYear, arrondissementNumber);
+  const { data: logementsSociauxKpiB, loading: logementsSociauxLoadingB, error: logementsSociauxErrorB } =
+    useLogementsSociauxKpi(selectedYear, arrondissementNumberB);
 
-  // Accessibilité avec l'utilisation de 40% salaire médian
+  // Accessibilite (A/B)
   const { data: accessibiliteKpi, loading: accessibiliteLoading, error: accessibiliteError } =
-  useAccessibiliteKpi(selectedYear, arrondissementNumber, revenuProportion);
+    useAccessibiliteKpi(selectedYear, arrondissementNumber, revenuProportion);
+  const { data: accessibiliteKpiB, loading: accessibiliteLoadingB, error: accessibiliteErrorB } =
+    useAccessibiliteKpi(selectedYear, arrondissementNumberB, revenuProportion);
 
   const handleArrondissementChange = (nextValue) => {
     setSelectedArrondissement(nextValue);
+  };
+
+  const handleArrondissementChangeB = (nextValue) => {
+    setSelectedArrondissementB(nextValue);
   };
 
   return (
@@ -81,25 +95,45 @@ function DashboardPage() {
               selectedYear={selectedYear}
               selectedArrondissement={selectedArrondissement}
               arrondissementNumber={arrondissementNumber}
-              priceMode={priceMode}
-              onPriceModeChange={setPriceMode}
+              selectedArrondissementB={selectedArrondissementB}
+              onArrondissementBChange={handleArrondissementChangeB}
+              revenuProportion={revenuProportion}
+              onRevenuProportionChange={setRevenuProportion}
+
               medianLocation={medianLocation}
               medianLocationLoading={medianLocationLoading}
               medianLocationError={medianLocationError}
               medianAchat={medianAchat}
               medianAchatLoading={medianAchatLoading}
               medianAchatError={medianAchatError}
+
+              medianLocationB={medianLocationB}
+              medianLocationLoadingB={medianLocationLoadingB}
+              medianLocationErrorB={medianLocationErrorB}
+              medianAchatB={medianAchatB}
+              medianAchatLoadingB={medianAchatLoadingB}
+              medianAchatErrorB={medianAchatErrorB}
+
               repartitionKpi={repartitionKpi}
               repartitionLoading={repartitionLoading}
               repartitionError={repartitionError}
+              repartitionKpiB={repartitionKpiB}
+              repartitionLoadingB={repartitionLoadingB}
+              repartitionErrorB={repartitionErrorB}
+
               logementsSociauxKpi={logementsSociauxKpi}
               logementsSociauxLoading={logementsSociauxLoading}
               logementsSociauxError={logementsSociauxError}
-              revenuProportion={revenuProportion}
-              onRevenuProportionChange={setRevenuProportion}
+              logementsSociauxKpiB={logementsSociauxKpiB}
+              logementsSociauxLoadingB={logementsSociauxLoadingB}
+              logementsSociauxErrorB={logementsSociauxErrorB}
+
               accessibiliteKpi={accessibiliteKpi}
               accessibiliteLoading={accessibiliteLoading}
               accessibiliteError={accessibiliteError}
+              accessibiliteKpiB={accessibiliteKpiB}
+              accessibiliteLoadingB={accessibiliteLoadingB}
+              accessibiliteErrorB={accessibiliteErrorB}
             />
           </aside>
         </div>
