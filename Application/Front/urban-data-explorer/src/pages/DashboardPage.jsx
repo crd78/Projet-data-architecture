@@ -6,6 +6,7 @@ import FilterView from "../components/map/MetricsView";
 import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
 import useLogementsSociauxKpi from "../hooks/useLogementsSociauxKpi";
+import useAccessibiliteKpi from "../hooks/useAccessibiliteKpi";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -19,6 +20,8 @@ function DashboardPage() {
   
   const arrondissementNumber = geoCodeToArrNumber(selectedArrondissement);
   const [priceMode, setPriceMode] = useState("location");
+
+  const [revenuProportion, setRevenuProportion] = useState(0.4);
 
   // Prix médian du m2 en location
   const { data: medianLocation, loading: medianLocationLoading, error: medianLocationError } =
@@ -35,6 +38,10 @@ function DashboardPage() {
   // Logements sociaux financés 
   const { data: logementsSociauxKpi, loading: logementsSociauxLoading, error: logementsSociauxError } =
     useLogementsSociauxKpi(selectedYear, arrondissementNumber);
+
+  // Accessibilité avec l'utilisation de 40% salaire médian
+  const { data: accessibiliteKpi, loading: accessibiliteLoading, error: accessibiliteError } =
+  useAccessibiliteKpi(selectedYear, arrondissementNumber, revenuProportion);
 
   const handleArrondissementChange = (nextValue) => {
     setSelectedArrondissement(nextValue);
@@ -88,6 +95,11 @@ function DashboardPage() {
               logementsSociauxKpi={logementsSociauxKpi}
               logementsSociauxLoading={logementsSociauxLoading}
               logementsSociauxError={logementsSociauxError}
+              revenuProportion={revenuProportion}
+              onRevenuProportionChange={setRevenuProportion}
+              accessibiliteKpi={accessibiliteKpi}
+              accessibiliteLoading={accessibiliteLoading}
+              accessibiliteError={accessibiliteError}
             />
           </aside>
         </div>

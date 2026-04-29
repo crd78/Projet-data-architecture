@@ -16,6 +16,11 @@ function FilterView({
   logementsSociauxKpi,
   logementsSociauxLoading,
   logementsSociauxError,
+  revenuProportion,
+  onRevenuProportionChange,
+  accessibiliteKpi,
+  accessibiliteLoading,
+  accessibiliteError,
 }) {
   const [activeTab, setActiveTab] = useState("temporal");
 
@@ -44,7 +49,7 @@ function FilterView({
         </div>
       </div>
 
-      <div className="max-h-[55vh] overflow-y-auto p-4 space-y-4">
+      <div className="p-4 space-y-4">
         {activeTab === "temporal" && (
           <>
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
@@ -66,11 +71,10 @@ function FilterView({
                     {!!medianLocationError && (
                       <div className="text-sm text-red-600">Erreur : {medianLocationError}</div>
                     )}
-                    {!medianLocationLoading &&
-                      !medianLocationError && (
-                        <div className="text-2xl font-bold text-blue-900">
-                          {medianLocation?.median_price_loyer ?? "—"}
-                        </div>
+                    {!medianLocationLoading && !medianLocationError && (
+                      <div className="text-2xl font-bold text-blue-900">
+                        {medianLocation?.median_price_loyer ?? "—"}
+                      </div>
                     )}
                   </div>
 
@@ -82,11 +86,10 @@ function FilterView({
                     {!!medianAchatError && (
                       <div className="text-sm text-red-600">Erreur : {medianAchatError}</div>
                     )}
-                    {!medianAchatLoading &&
-                      !medianAchatError && (
-                        <div className="text-2xl font-bold text-blue-900">
-                          {medianAchat?.median_price_achat ?? "—"}
-                        </div>
+                    {!medianAchatLoading && !medianAchatError && (
+                      <div className="text-2xl font-bold text-blue-900">
+                        {medianAchat?.median_price_achat ?? "—"}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -160,10 +163,70 @@ function FilterView({
             </div>
 
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
-              Metrics 4 : Score de nuisance sonore
+              <div className="font-semibold">Revenu médian mensuel</div>
+
+              {selectedArrondissement === "all" && (
+                <div className="mt-2 text-sm text-slate-500">
+                  Sélectionne un arrondissement pour afficher la KPI.
+                </div>
+              )}
+
+              {accessibiliteLoading && (
+                <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+              )}
+
+              {!!accessibiliteError && (
+                <div className="mt-2 text-sm text-red-600">Erreur : {accessibiliteError}</div>
+              )}
+
+              {!accessibiliteLoading &&
+                !accessibiliteError &&
+                selectedArrondissement !== "all" &&
+                accessibiliteKpi?.income_monthly !== undefined && (
+                  <div className="mt-3 text-2xl font-bold text-blue-900">
+                    {Number(accessibiliteKpi.income_monthly).toLocaleString("fr-FR")} €
+                  </div>
+              )}
             </div>
+
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
-              Metrics 5 : Accessibilité 
+              <div className="font-semibold">Accessibilité (m² louables)</div>
+
+              {selectedArrondissement === "all" && (
+                <div className="mt-2 text-sm text-slate-500">
+                  Sélectionne un arrondissement pour afficher la KPI.
+                </div>
+              )}
+
+              <div className="mt-2 text-xs text-slate-500">
+                Part du revenu utilisée : {Math.round(revenuProportion * 100)}%
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="0.8"
+                step="0.05"
+                value={revenuProportion}
+                onChange={(e) => onRevenuProportionChange(Number(e.target.value))}
+                className="mt-1 w-full accent-blue-700"
+              />
+
+              {accessibiliteLoading && (
+                <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+              )}
+
+              {!!accessibiliteError && (
+                <div className="mt-2 text-sm text-red-600">Erreur : {accessibiliteError}</div>
+              )}
+
+              {!accessibiliteLoading &&
+                !accessibiliteError &&
+                selectedArrondissement !== "all" &&
+                accessibiliteKpi?.m2_accessible !== undefined && (
+                  <div className="mt-3 text-2xl font-bold text-blue-900">
+                    {accessibiliteKpi.m2_accessible}
+                  </div>
+              )}
             </div>
           </>
         )}
@@ -178,6 +241,9 @@ function FilterView({
             </div>
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
               Metrics 3 : Temps moyen de résolution des signalements
+            </div>
+            <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
+              Metrics 4 : Score de nuisance sonore
             </div>
           </>
         )}

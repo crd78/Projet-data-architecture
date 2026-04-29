@@ -27,3 +27,15 @@ export function fetchLogementsSociauxTotal(annee, arrondissement, signal) {
     { signal }
   );
 }
+
+export function fetchAccessibiliteLoyerRevenu(annee, arrondissement, revenuProportion, signal) {
+  return getJson(
+    "/kpi/accessibilite_loyer_revenu",
+    {
+      annee: String(annee),
+      arrondissement: String(arrondissement),
+      revenu_proportion: String(revenuProportion),
+    },
+    { signal }
+  );
+}
