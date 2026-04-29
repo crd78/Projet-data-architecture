@@ -87,7 +87,7 @@ function DashboardPage() {
               onMapClick={setClickedPosition}
             />
             <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-[360px] max-w-[calc(100%-2rem)]">
-              <div className="pointer-events-auto rounded-2xl border border-blue-100 bg-white/95 p-4 shadow-lg backdrop-blur">
+              <div className="pointer-events-auto rounded-2xl border border-blue-100/60 bg-white/60 p-4 shadow-lg backdrop-blur-none">
                 <div className="text-sm font-semibold text-blue-900">
                   Disponibilité stationnement
                 </div>
