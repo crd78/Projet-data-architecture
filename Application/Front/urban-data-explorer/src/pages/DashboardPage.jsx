@@ -1,9 +1,11 @@
 import { useState } from "react";
 import useMedianKpi from "../hooks/useMedianKpi";
+import useRepartitionKpi from "../hooks/useRepartitionKpi";
 import MapView from "../components/map/MapView";
 import FilterView from "../components/map/MetricsView";
 import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
+import useLogementsSociauxKpi from "../hooks/useLogementsSociauxKpi";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -17,8 +19,18 @@ function DashboardPage() {
   
   const arrondissementNumber = geoCodeToArrNumber(selectedArrondissement);
   
+
+  // Prix médian du m2 en location
   const { data: medianKpi, loading: medianKpiLoading, error: medianKpiError } =
     useMedianKpi(selectedYear, arrondissementNumber);
+  
+  // Répartion des types de logements
+  const { data: repartitionKpi, loading: repartitionLoading, error: repartitionError } =
+    useRepartitionKpi(selectedYear, arrondissementNumber);
+
+  // Logements sociaux financés 
+  const { data: logementsSociauxKpi, loading: logementsSociauxLoading, error: logementsSociauxError } =
+    useLogementsSociauxKpi(selectedYear, arrondissementNumber);
 
   const handleArrondissementChange = (nextValue) => {
     setSelectedArrondissement(nextValue);
@@ -30,7 +42,6 @@ function DashboardPage() {
       <header className="border-b border-slate-200 bg-white/80">
         <div className="mx-auto max-w-[1400px] px-4 py-4">
           <h1 className="text-2xl font-bold text-blue-900">Urban Data Explorer</h1>
-          <p className="text-sm text-blue-600">Annee active : {selectedYear}</p>
         </div>
       </header>
 
@@ -63,6 +74,12 @@ function DashboardPage() {
               medianKpi={medianKpi}
               medianKpiLoading={medianKpiLoading}
               medianKpiError={medianKpiError}
+              repartitionKpi={repartitionKpi}
+              repartitionLoading={repartitionLoading}
+              repartitionError={repartitionError}
+              logementsSociauxKpi={logementsSociauxKpi}
+              logementsSociauxLoading={logementsSociauxLoading}
+              logementsSociauxError={logementsSociauxError}
             />
           </aside>
         </div>
