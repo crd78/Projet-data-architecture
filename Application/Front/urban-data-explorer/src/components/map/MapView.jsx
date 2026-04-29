@@ -23,7 +23,12 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
 
     if (arrondissementsData) {
       output.push(
-        createDistrictLayer(arrondissementsData, "nom", !showRoads, selectedArrondissement)
+        createDistrictLayer(
+          arrondissementsData,
+          "nom",
+          !showRoads,
+          selectedArrondissement
+        )
       );
     }
 
@@ -38,20 +43,19 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
           data: [clickedPosition],
           getPosition: (d) => [d.longitude, d.latitude],
           getIcon: () => ({
-          url: "/marker.png",
-          width: 64,
-          height: 64,
-          anchorY: 64
-        }),
-        sizeScale: 1,
-        getSize: 30,
-        pickable: false
+            url: "/marker.png",
+            width: 64,
+            height: 64,
+            anchorY: 64
+          }),
+          sizeScale: 1,
+          getSize: 30,
+          pickable: false
         })
       );
     }
 
     return output;
-
   }, [arrondissementsData, roadData, viewState.zoom, selectedArrondissement, clickedPosition]);
 
   const handleMapClick = (info) => {

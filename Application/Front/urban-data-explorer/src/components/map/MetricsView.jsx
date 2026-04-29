@@ -179,6 +179,10 @@ function FilterView({
                 <div className="mt-2 text-sm text-red-600">Erreur : {accessibiliteError}</div>
               )}
 
+              {accessibiliteKpi?.reason === "no_loyer_data" && (
+                <div className="mt-3 text-2xl font-bold text-blue-900">Pas de données</div>
+              )}
+
               {!accessibiliteLoading &&
                 !accessibiliteError &&
                 selectedArrondissement !== "all" &&
@@ -217,6 +221,10 @@ function FilterView({
 
               {!!accessibiliteError && (
                 <div className="mt-2 text-sm text-red-600">Erreur : {accessibiliteError}</div>
+              )}
+
+              {accessibiliteKpi?.reason === "no_loyer_data" && (
+                <div className="mt-3 text-2xl font-bold text-blue-900">Pas de données</div>
               )}
 
               {!accessibiliteLoading &&
