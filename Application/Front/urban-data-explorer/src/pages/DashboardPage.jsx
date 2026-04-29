@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import useMedianKpi from "../hooks/useMedianKpi";
+import useRepartitionKpi from "../hooks/useRepartitionKpi";
 import MapView from "../components/map/MapView";
 import FilterView from "../components/map/MetricsView";
 import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
+import useLogementsSociauxKpi from "../hooks/useLogementsSociauxKpi";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -32,6 +34,10 @@ function DashboardPage() {
 
   const { data: medianKpi, loading: medianKpiLoading, error: medianKpiError } =
     useMedianKpi(selectedYear, arrondissementNumber);
+
+  // Logements sociaux financés 
+  const { data: logementsSociauxKpi, loading: logementsSociauxLoading, error: logementsSociauxError } =
+    useLogementsSociauxKpi(selectedYear, arrondissementNumber);
 
   const handleArrondissementChange = (nextValue) => {
     setSelectedArrondissement(nextValue);
