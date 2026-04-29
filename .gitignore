@@ -13,3 +13,7 @@ venv
 
 Pipeline/dagster_home/
 .claude
+
+Application/Front/urban-data-explorer/
+
+Application/Api/__pycache__/

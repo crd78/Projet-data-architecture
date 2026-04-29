@@ -7,19 +7,22 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-try:
-    from .func import point_dans_zone
-except ImportError:
-    from func import point_dans_zone
-
 
 PIPELINE_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_DIR = PIPELINE_DIR / "datasets_finaux"
-KPI_IMPOSE_DIR = BASE_DIR / "KPI_impose_silver"
-KPI_PERSONNALISE_DIR = BASE_DIR / "KPI_personnalise_silver"
+KPI_IMPOSE_DIR = BASE_DIR / "KPI_impose_silver_enriched"
+KPI_PERSONNALISE_DIR = BASE_DIR / "KPI_personnalise_silver_enriched"
 GOLD_DIR = BASE_DIR / "gold"
 DB_PATH = BASE_DIR / "paris_immobilier.db"
-QUARTIERS_PATH = KPI_IMPOSE_DIR / "quartier_paris.parquet"
+QUARTIERS_PATH = BASE_DIR / "KPI_impose_silver" / "quartiers_silver.parquet"
+
+QUARTIER_COLS = [
+    "arrondissement_quartier",
+    "num_quartier",
+    "nom_quartier",
+    "surface_quartier",
+    "geometry_quartier",
+]
 
 
 def _write_sql(table_name: str, df: pd.DataFrame) -> None:
@@ -65,87 +68,54 @@ def _filter_arrondissement(df: pd.DataFrame, column: str = "arrondissement") -> 
     return df[df[column].between(1, 20)]
 
 
-def _quartier_name_by_code() -> pd.Series:
-    df_quartiers = pd.read_parquet(QUARTIERS_PATH, columns=["c_qu", "l_qu"])
-    return df_quartiers.drop_duplicates("c_qu").set_index("c_qu")["l_qu"]
+def _read_parquet(path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(f"Fichier introuvable: {path}")
+    return pd.read_parquet(path, columns=columns)
 
 
-def _point_lookup(row, include_surface: bool = False):
-    arr = row.get("arrondissement")
-    if pd.isna(arr):
-        arr = None
-
-    return point_dans_zone(
-        row.get("latitude"),
-        row.get("longitude"),
-        QUARTIERS_PATH,
-        arr,
-        other_column="surface" if include_surface else None,
-    )
-
-
-def _assign_quartier(df: pd.DataFrame, include_surface: bool = False) -> pd.DataFrame:
+def _with_api_quartier_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    target_cols = ["num_quartier", "nom_quartier"]
-    if include_surface:
-        target_cols.append("surface")
-
-    if df.empty:
-        for col in target_cols:
-            df[col] = pd.Series(dtype="object")
-        return df
-
-    df[target_cols] = df.apply(
-        lambda row: _point_lookup(row, include_surface=include_surface),
-        axis=1,
-        result_type="expand",
-    )
+    replacements = {
+        "arrondissement_quartier": "arrondissement",
+        "surface_quartier": "surface",
+        "geometry_quartier": "geometry",
+    }
+    for source, target in replacements.items():
+        if source in df.columns:
+            df[target] = df[source]
+            df = df.drop(columns=[source])
+    if "num_quartier" in df.columns:
+        df["num_quartier"] = pd.to_numeric(df["num_quartier"], errors="coerce").astype("Int64")
+    if "arrondissement" in df.columns:
+        df["arrondissement"] = pd.to_numeric(df["arrondissement"], errors="coerce").astype("Int64")
+    if "geometry" in df.columns:
+        df["geometry"] = df["geometry"].astype("string")
     return df
 
 
+def _drop_without_quartier(df: pd.DataFrame) -> pd.DataFrame:
+    return df.dropna(subset=["num_quartier", "nom_quartier"]).copy()
+
+
 def quartiers_paris():
-    df = pd.read_parquet(QUARTIERS_PATH)
-    _write_sql("quartiers_paris", df)
+    df = _read_parquet(QUARTIERS_PATH)
+    result = _with_api_quartier_columns(df)
+    _write_sql("quartiers_paris", result)
 
 
-def _read_places_source() -> pd.DataFrame:
-    required = [
-        "arro",
-        "qua",
+def activite_quartier():
+    path = KPI_PERSONNALISE_DIR / "google_place.parquet"
+    columns = [
+        *QUARTIER_COLS,
         "gp_place_id",
         "gp_display_name",
         "gp_business_status",
         "gp_rating",
         "gp_user_rating_count",
     ]
-    candidates = [
-        KPI_PERSONNALISE_DIR / "google_place.parquet",
-        KPI_PERSONNALISE_DIR / "BDCOM_2023.parquet",
-    ]
-
-    for path in candidates:
-        if not path.exists():
-            continue
-        df = pd.read_parquet(path)
-        if all(col in df.columns for col in required):
-            return df[required].copy()
-
-    bdc_path = KPI_PERSONNALISE_DIR / "BDCOM_2023.parquet"
-    google_path = KPI_PERSONNALISE_DIR / "google_place.parquet"
-    if bdc_path.exists() and google_path.exists():
-        bdc = pd.read_parquet(bdc_path)
-        google = pd.read_parquet(google_path)
-        keys = [key for key in ["arro", "qua", "num", "codact"] if key in bdc.columns and key in google.columns]
-        if keys and all(col in google.columns for col in required[2:]):
-            google = google[keys + required[2:]].drop_duplicates()
-            merged = bdc.merge(google, on=keys, how="left")
-            return _require_columns(merged, required, bdc_path)
-
-    raise FileNotFoundError("Aucune source avec les colonnes Google Places attendues.")
-
-
-def activite_quartier():
-    df = _clean_missing_values(_read_places_source())
+    df = _clean_missing_values(_require_columns(_read_parquet(path), columns, path))
+    df = _drop_without_quartier(df)
     df = df[df["gp_display_name"].notna() & df["gp_business_status"].notna()].copy()
 
     df["gp_rating"] = pd.to_numeric(df["gp_rating"], errors="coerce")
@@ -156,12 +126,11 @@ def activite_quartier():
     df["closed_permanently"] = (status == "closed permanently").astype(int)
     df["closed_temporarily"] = (status == "closed temporarily").astype(int)
     df["close"] = df["closed_permanently"] + df["closed_temporarily"]
-    df["nom_quartier"] = df["qua"].map(_quartier_name_by_code())
 
-    result = df.groupby(["nom_quartier", "qua", "arro"], dropna=False).agg(
+    result = df.groupby(QUARTIER_COLS, dropna=False).agg(
         gp_rating=("gp_rating", "mean"),
         gp_user_rating_count=("gp_user_rating_count", "sum"),
-        gp_place_id=("gp_place_id", "nunique"),
+        gp_place_count=("gp_place_id", "nunique"),
         open=("open", "sum"),
         close=("close", "sum"),
         closed_permanently=("closed_permanently", "sum"),
@@ -170,38 +139,33 @@ def activite_quartier():
 
     result["gp_rating"] = result["gp_rating"].fillna(0)
     result["activite_quartier_score"] = (
-        result["gp_place_id"] * 2
+        result["gp_place_count"] * 2
         + result["gp_rating"] * 10
         - result["close"] * 5
     )
-    _write_sql("activite_quartier", result)
+    _write_sql("activite_quartier", _with_api_quartier_columns(result))
 
 
 def nuisance_sonore():
     path = KPI_PERSONNALISE_DIR / "chantiers-a-paris-copie1-1.parquet"
     columns = [
-        "code_postal_arrondissement_commune",
+        *QUARTIER_COLS,
+        "reference_chantier",
         "date_debut_du_chantier",
         "date_fin_du_chantier",
         "surface_m2",
-        "synthese_nature_du_chantier",
-        "encombrement_espace_public",
-        "impact_stationnement",
-        "geo_shape",
         "coef_nature_travaux",
         "coef_encombrant",
         "db_base",
         "taux_de_nuisance",
-        "latitude",
-        "longitude",
     ]
-    df = _require_columns(pd.read_parquet(path), columns, path)
+    df = _clean_missing_values(_require_columns(_read_parquet(path), columns, path))
+    df = _drop_without_quartier(df)
 
     df["date_fin_du_chantier"] = pd.to_datetime(df["date_fin_du_chantier"], errors="coerce")
-    df = df[df["date_fin_du_chantier"].notna()]
     df = df[df["date_fin_du_chantier"] >= pd.Timestamp.now()]
 
-    for col in ["db_base", "taux_de_nuisance", "coef_nature_travaux", "coef_encombrant"]:
+    for col in ["surface_m2", "db_base", "taux_de_nuisance", "coef_nature_travaux", "coef_encombrant"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     df["nuisance_sonore_score"] = (
@@ -210,7 +174,15 @@ def nuisance_sonore():
         * df["coef_nature_travaux"]
         * df["coef_encombrant"]
     )
-    _write_sql("nuisance_sonore", df)
+
+    result = df.groupby(QUARTIER_COLS, dropna=False).agg(
+        nb_chantiers=("reference_chantier", "nunique"),
+        surface_chantiers_m2=("surface_m2", "sum"),
+        nuisance_sonore_score=("nuisance_sonore_score", "sum"),
+        date_fin_max=("date_fin_du_chantier", "max"),
+    ).reset_index()
+
+    _write_sql("nuisance_sonore", _with_api_quartier_columns(result))
 
 
 def indice_trafic_quartier() -> pd.DataFrame:
@@ -258,97 +230,39 @@ def indice_trafic_quartier() -> pd.DataFrame:
     return df.loc[df.groupby("libelle")[count_col].idxmax()].reset_index(drop=True)
 
 
-def _traffic_index(label) -> int:
-    normalized = _normalize_text(label)
-    if normalized == "fluide":
-        return 1
-    if "sature" in normalized:
-        return 3
-    return 2
-
-
-def _traffic_by_quartier() -> pd.DataFrame:
-    df_trafic = indice_trafic_quartier()
-    if df_trafic.empty or "geo_cluster(geo_point_2d,1)" not in df_trafic.columns:
-        return pd.DataFrame(columns=["num_quartier", "nom_quartier", "indice_trafic_quartier"])
-
-    def extract_lat_lon(cluster):
-        if not isinstance(cluster, dict):
-            return pd.Series({"latitude": pd.NA, "longitude": pd.NA})
-        centroid = cluster.get("cluster_centroid") or {}
-        return pd.Series({"latitude": centroid.get("lat"), "longitude": centroid.get("lon")})
-
-    df_trafic[["latitude", "longitude"]] = df_trafic["geo_cluster(geo_point_2d,1)"].apply(extract_lat_lon)
-    df_trafic = _assign_quartier(df_trafic)
-    df_trafic["indice_trafic_quartier"] = df_trafic["etat_trafic"].map(_traffic_index)
-    df_trafic = df_trafic.dropna(subset=["num_quartier", "nom_quartier"])
-
-    return df_trafic.groupby(["num_quartier", "nom_quartier"], as_index=False).agg(
-        indice_trafic_quartier=("indice_trafic_quartier", "max")
-    )
-
-
 def disponibilite_stationnement():
     park_path = KPI_PERSONNALISE_DIR / "stationnement-parking-public.parquet"
     voirie_path = KPI_PERSONNALISE_DIR / "stationnement-voie-publique-emplacements.parquet"
 
-    park_cols = [
-        "nom_parc",
-        "adresse_principale",
-        "nbre_total_places",
-        "nbre_place_voit_elec",
-        "adresses_entrees",
-        "arrondissement",
-        "latitude",
-        "longitude",
-    ]
-    voirie_cols = [
-        "regime_prioritaire",
-        "regime_particulier",
-        "arrondissement",
-        "nombre_places_reelles",
-        "zones_residentielles",
-        "numero_voie",
-        "type_voie",
-        "nom_voie",
-        "latitude",
-        "longitude",
-    ]
+    park_cols = [*QUARTIER_COLS, "nbre_total_places", "nbre_place_voit_elec"]
+    voirie_cols = [*QUARTIER_COLS, "nombre_places_reelles"]
 
-    df_park = _filter_arrondissement(_require_columns(pd.read_parquet(park_path), park_cols, park_path))
-    df_voirie = _filter_arrondissement(_require_columns(pd.read_parquet(voirie_path), voirie_cols, voirie_path))
+    df_park = _drop_without_quartier(_require_columns(_read_parquet(park_path), park_cols, park_path))
+    df_voirie = _drop_without_quartier(_require_columns(_read_parquet(voirie_path), voirie_cols, voirie_path))
 
     df_park["nbre_total_places"] = pd.to_numeric(df_park["nbre_total_places"], errors="coerce").fillna(0)
+    df_park["nbre_place_voit_elec"] = pd.to_numeric(df_park["nbre_place_voit_elec"], errors="coerce").fillna(0)
     df_voirie["nombre_places_reelles"] = pd.to_numeric(df_voirie["nombre_places_reelles"], errors="coerce").fillna(0)
 
-    df_park = _assign_quartier(df_park).dropna(subset=["num_quartier", "nom_quartier"])
-    df_voirie = _assign_quartier(df_voirie).dropna(subset=["num_quartier", "nom_quartier"])
+    df_park_agg = df_park.groupby(QUARTIER_COLS, dropna=False).agg(
+        nombre_places_parking_public=("nbre_total_places", "sum"),
+        nombre_places_voiture_electrique=("nbre_place_voit_elec", "sum"),
+    ).reset_index()
 
-    df_park = df_park.groupby(["arrondissement", "num_quartier", "nom_quartier"], as_index=False).agg(
-        nombre_places_parking_public=("nbre_total_places", "sum")
-    )
-    df_voirie = df_voirie.groupby(["arrondissement", "num_quartier", "nom_quartier"], as_index=False).agg(
+    df_voirie_agg = df_voirie.groupby(QUARTIER_COLS, dropna=False).agg(
         nombre_places_voirie=("nombre_places_reelles", "sum")
+    ).reset_index()
+
+    result = df_park_agg.merge(df_voirie_agg, on=QUARTIER_COLS, how="outer")
+    for col in ["nombre_places_parking_public", "nombre_places_voiture_electrique", "nombre_places_voirie"]:
+        result[col] = pd.to_numeric(result[col], errors="coerce").fillna(0)
+
+    result["disponibilite_stationnement_score"] = (
+        result["nombre_places_voirie"] * 0.6
+        + result["nombre_places_parking_public"] * 0.4
     )
 
-    df = df_park.merge(
-        df_voirie,
-        on=["arrondissement", "num_quartier", "nom_quartier"],
-        how="outer",
-    )
-    df[["nombre_places_parking_public", "nombre_places_voirie"]] = df[
-        ["nombre_places_parking_public", "nombre_places_voirie"]
-    ].fillna(0)
-
-    trafic = _traffic_by_quartier()
-    df = df.merge(trafic, on=["num_quartier", "nom_quartier"], how="left")
-    df["indice_trafic_quartier"] = df["indice_trafic_quartier"].fillna(1)
-    df["disponibilite_stationnement_score"] = (
-        df["nombre_places_voirie"] * 0.6
-        + df["nombre_places_parking_public"] * 0.4
-    ) / df["indice_trafic_quartier"]
-
-    _write_sql("disponibilite_stationnement", df)
+    _write_sql("disponibilite_stationnement", _with_api_quartier_columns(result))
 
 
 DECLARATION_CODES = {
@@ -356,6 +270,7 @@ DECLARATION_CODES = {
     "graffitis tags affiches et autocollants": "graffitis",
     "mobiliers urbains": "mobiliers_urbains",
     "degradation du sol": "degradation_sol",
+    "objets abandonnes": "objets_abandonnes",
 }
 
 DECLARATION_WEIGHTS = {
@@ -363,31 +278,26 @@ DECLARATION_WEIGHTS = {
     "graffitis": 0.7,
     "mobiliers_urbains": 0.9,
     "degradation_sol": 1.2,
+    "objets_abandonnes": 1.1,
 }
 
 
 def proprete_general():
     path = KPI_PERSONNALISE_DIR / "dans-ma-rue.parquet"
-    df = pd.read_parquet(path)
-    required = ["type_declaration", "arrondissement", "latitude", "longitude"]
-    _require_columns(df, required, path)
+    columns = [*QUARTIER_COLS, "type_declaration"]
+    df = _clean_missing_values(_require_columns(_read_parquet(path), columns, path))
+    df = _drop_without_quartier(df)
 
-    df = df.copy()
-    df["type_code"] = df["type_declaration"].map(lambda value: DECLARATION_CODES.get(_normalize_text(value)))
+    df["type_code"] = df["type_declaration"].map(
+        lambda value: DECLARATION_CODES.get(_normalize_text(value))
+    )
     df = df[df["type_code"].notna()]
-    df = _filter_arrondissement(df)
 
     if df.empty:
         _write_sql("proprete_general", pd.DataFrame())
         return
 
-    df = _assign_quartier(df, include_surface=True)
-    df = df.dropna(subset=["num_quartier", "nom_quartier", "surface"])
-    df["surface"] = pd.to_numeric(df["surface"], errors="coerce")
-    df = df[df["surface"].notna() & (df["surface"] > 0)]
-
-    group_cols = ["arrondissement", "num_quartier", "nom_quartier", "surface"]
-    counts = df.groupby(group_cols + ["type_code"]).size().unstack(fill_value=0).reset_index()
+    counts = df.groupby(QUARTIER_COLS + ["type_code"], dropna=False).size().unstack(fill_value=0).reset_index()
     for code in DECLARATION_WEIGHTS:
         if code not in counts.columns:
             counts[code] = 0
@@ -395,36 +305,40 @@ def proprete_general():
     counts["somme_poids_type"] = sum(
         counts[code] * weight for code, weight in DECLARATION_WEIGHTS.items()
     )
-    counts["proprete_score"] = counts["somme_poids_type"] / counts["surface"]
+    counts["proprete_score"] = counts["somme_poids_type"] / pd.to_numeric(
+        counts["surface_quartier"], errors="coerce"
+    ).replace(0, pd.NA)
+
     counts = counts.rename(
         columns={
             "proprete": "decl_proprete",
             "graffitis": "decl_graffitis_tags_affiches_autocollants",
             "mobiliers_urbains": "decl_mobiliers_urbains",
             "degradation_sol": "decl_degradation_du_sol",
+            "objets_abandonnes": "decl_objets_abandonnes",
         }
     )
 
-    _write_sql("proprete_general", counts)
+    _write_sql("proprete_general", _with_api_quartier_columns(counts))
 
 
 def logement_sociaux():
     path = KPI_IMPOSE_DIR / "logements-sociaux-finances-a-paris.parquet"
-    df = pd.read_parquet(path)
+    df = _read_parquet(path)
     df = df.drop(columns=["coordonnee_en_x_l93", "coordonnee_en_y_l93", "geo_shape"], errors="ignore")
-    _write_sql("logement_sociaux", df)
+    _write_sql("logement_sociaux", _with_api_quartier_columns(df))
 
 
 def location_arrondissement():
     path = KPI_IMPOSE_DIR / "logement-encadrement-des-loyers.parquet"
-    df = pd.read_parquet(path)
+    df = _read_parquet(path)
     df = df.drop(columns=["numero_insee_du_quartier", "geo_shape"], errors="ignore")
-    _write_sql("location_arrondissement", df)
+    _write_sql("location_arrondissement", _with_api_quartier_columns(df))
 
 
 def somme_prix_paris_par_annee():
     path = KPI_PERSONNALISE_DIR / "Somme_Prix_Paris_Par_Annee_2019_2024.parquet"
-    df = pd.read_parquet(path)
+    df = _read_parquet(path)
 
     if "annee" in df.columns:
         df["annee"] = pd.to_numeric(df["annee"], errors="coerce").astype("Int64")
@@ -448,7 +362,7 @@ def _normalize_iris(series: pd.Series) -> pd.Series:
 def population_niveau_vie():
     habitant_path = KPI_IMPOSE_DIR / "base-ic-evol-struct-pop-2021.parquet"
     df_nb_habitant = _require_columns(
-        pd.read_parquet(habitant_path),
+        _read_parquet(habitant_path),
         ["iris", "p21_pop"],
         habitant_path,
     )
@@ -461,7 +375,7 @@ def population_niveau_vie():
 
     frames = []
     for file_path in files:
-        df = pd.read_parquet(file_path)
+        df = _read_parquet(Path(file_path))
         df.columns = df.columns.str.lower()
 
         col_iris = next((col for col in df.columns if re.fullmatch(r"iris", col)), None)
@@ -478,10 +392,9 @@ def population_niveau_vie():
                 col_dec_pimp: "dec_pimp",
             }
         )
-        parts = file_path.split(".")[0]
-        parts = parts.split("_")
+        parts = Path(file_path).stem.split("_")
         year = next((p for p in parts if re.fullmatch(r"\d{4}", p)), None)
-        df["année"] = year
+        df["annee"] = year
         df["iris"] = _normalize_iris(df["iris"])
         frames.append(df[df["iris"].str.startswith("75", na=False)])
 
@@ -495,7 +408,7 @@ def population_niveau_vie():
 
 def prix_arrondissement():
     path = KPI_IMPOSE_DIR / "stats_whole_period.parquet"
-    df = pd.read_parquet(path)
+    df = _read_parquet(path)
     df["code_geo"] = df["code_geo"].astype("string")
     df = df[(df["code_geo"].str.startswith("751", na=False)) & (df["echelle_geo"] == "commune")]
     _write_sql("prix_arrondissement", df)

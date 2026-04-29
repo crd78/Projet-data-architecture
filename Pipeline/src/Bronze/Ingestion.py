@@ -11,6 +11,7 @@ from dagster import (
     asset,
     define_asset_job,
 )
+from executors import get_executor_def
 
 PIPELINE_DIR = Path(__file__).resolve().parent.parent.parent
 PARQUET_BASE_DIR = PIPELINE_DIR / "datasets_finaux"
@@ -111,6 +112,7 @@ all_ingestion_assets = [bronze_kpi_impose, bronze_kpi_personnalise]
 ingestion_job = define_asset_job(
     name="bronze_ingestion_job",
     selection=AssetSelection.assets(*all_ingestion_assets),
+    executor_def=get_executor_def(),
 )
 
 defs = Definitions(

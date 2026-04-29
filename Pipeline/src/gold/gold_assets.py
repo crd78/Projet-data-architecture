@@ -27,7 +27,7 @@ def _read_table(table_name: str) -> pd.DataFrame:
     return df
 
 
-@asset(name="gold_quartiers_paris", group_name="gold", deps=[AssetKey("silver_kpi_impose")])
+@asset(name="gold_quartiers_paris", group_name="gold", deps=[AssetKey("silver_quartiers")])
 def quartiers_paris(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
 
@@ -41,7 +41,7 @@ def quartiers_paris(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_prix_arrondissement",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_impose"), AssetKey("gold_quartiers_paris")],
+    deps=[AssetKey("silver_kpi_impose_enriched"), AssetKey("gold_quartiers_paris")],
 )
 def prix_arrondissement(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -56,7 +56,7 @@ def prix_arrondissement(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_activite_quartier",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_personnalise"), AssetKey("gold_prix_arrondissement")],
+    deps=[AssetKey("silver_kpi_personnalise_enriched"), AssetKey("gold_prix_arrondissement")],
 )
 def activite_quartier(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -71,7 +71,7 @@ def activite_quartier(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_nuisance_sonore",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_personnalise"), AssetKey("gold_activite_quartier")],
+    deps=[AssetKey("silver_kpi_personnalise_enriched"), AssetKey("gold_activite_quartier")],
 )
 def nuisance_sonore(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -86,7 +86,7 @@ def nuisance_sonore(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_disponibilite_stationnement",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_personnalise"), AssetKey("gold_nuisance_sonore")],
+    deps=[AssetKey("silver_kpi_personnalise_enriched"), AssetKey("gold_nuisance_sonore")],
 )
 def disponibilite_stationnement(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -101,7 +101,7 @@ def disponibilite_stationnement(context: AssetExecutionContext) -> MaterializeRe
 @asset(
     name="gold_proprete_general",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_personnalise"), AssetKey("gold_disponibilite_stationnement")],
+    deps=[AssetKey("silver_kpi_personnalise_enriched"), AssetKey("gold_disponibilite_stationnement")],
 )
 def proprete_general(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -116,7 +116,7 @@ def proprete_general(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_population_niveau_vie",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_impose"), AssetKey("gold_proprete_general")],
+    deps=[AssetKey("silver_kpi_impose_enriched"), AssetKey("gold_proprete_general")],
 )
 def population_niveau_vie(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -131,7 +131,7 @@ def population_niveau_vie(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_logement_sociaux",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_impose"), AssetKey("gold_population_niveau_vie")],
+    deps=[AssetKey("silver_kpi_impose_enriched"), AssetKey("gold_population_niveau_vie")],
 )
 def logement_sociaux(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -146,7 +146,7 @@ def logement_sociaux(context: AssetExecutionContext) -> MaterializeResult:
 @asset(
     name="gold_location_arrondissement",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_impose"), AssetKey("gold_logement_sociaux")],
+    deps=[AssetKey("silver_kpi_impose_enriched"), AssetKey("gold_logement_sociaux")],
 )
 def location_arrondissement(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart
@@ -161,7 +161,7 @@ def location_arrondissement(context: AssetExecutionContext) -> MaterializeResult
 @asset(
     name="gold_somme_prix_paris_par_annee",
     group_name="gold",
-    deps=[AssetKey("silver_kpi_personnalise"), AssetKey("gold_location_arrondissement")],
+    deps=[AssetKey("silver_kpi_personnalise_enriched"), AssetKey("gold_location_arrondissement")],
 )
 def somme_prix_paris_par_annee(context: AssetExecutionContext) -> MaterializeResult:
     from . import datamart

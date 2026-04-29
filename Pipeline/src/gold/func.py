@@ -33,16 +33,18 @@ def _load_zones(df_path: str):
     zones = []
 
     for _, row in df.iterrows():
-        geom = _parse_geometry(row.get("geometry"))
+        geometry_value = row.get("geometry") if "geometry" in df.columns else row.get("geometry_quartier")
+        geom = _parse_geometry(geometry_value)
         if geom is None or geom.is_empty:
             continue
 
         zones.append(
             {
-                "arrondissement": row.get("c_ar"),
-                "nom_quartier": row.get("l_qu"),
-                "num_quartier": row.get("c_quinsee"),
-                "surface": row.get("surface"),
+                "arrondissement": row.get("c_ar", row.get("arrondissement_quartier")),
+                "nom_quartier": row.get("l_qu", row.get("nom_quartier")),
+                "num_quartier": row.get("c_qu", row.get("num_quartier")),
+                "surface": row.get("surface", row.get("surface_quartier")),
+                "geometry": str(geometry_value),
                 "bounds": geom.bounds,
                 "prepared": prep(geom),
             }
@@ -51,11 +53,9 @@ def _load_zones(df_path: str):
     return tuple(zones)
 
 
-def point_dans_zone(x, y, df_path, arr=None, other_column=None):
+def point_dans_zone(x, y, df_path, arr=None):
     if pd.isna(x) or pd.isna(y):
-        if other_column is not None:
-            return None, None, None
-        return None, None
+        return None, None, None, None
 
     point = Point(float(y), float(x))
     zones = _load_zones(str(df_path))
@@ -69,10 +69,7 @@ def point_dans_zone(x, y, df_path, arr=None, other_column=None):
             continue
 
         if zone["prepared"].contains(point):
-            if other_column is not None:
-                return zone["num_quartier"], zone["nom_quartier"], zone.get(other_column)
-            return zone["num_quartier"], zone["nom_quartier"]
+            return zone["num_quartier"], zone["nom_quartier"], zone["surface"], zone["geometry"]
 
-    if other_column is not None:
-        return None, None, None
-    return None, None
+    return None, None, None, None
+
