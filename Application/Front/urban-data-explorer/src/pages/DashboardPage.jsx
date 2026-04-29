@@ -109,6 +109,7 @@ function DashboardPage() {
               geoJsonUrl="/data/communes.geojson"
               selectedArrondissement={selectedArrondissement}
               onMapClick={setClickedPosition}
+              onSelectArrondissement={setSelectedArrondissement}
             />
             <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-[360px] max-w-[calc(100%-2rem)]">
               <div className="pointer-events-auto rounded-2xl border border-blue-100/60 bg-white/60 p-4 shadow-lg backdrop-blur-sm">

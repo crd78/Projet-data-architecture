@@ -5,13 +5,16 @@ import useGeoJsonData from "../../hooks/useGeoJsonData";
 import { createDistrictLayer, createRoadLayer } from "./GeoJsonLayer";
 import { IconLayer } from "@deck.gl/layers";
 
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { point as turfPoint } from "@turf/helpers";
+
 const INITIAL_VIEW_STATE = {
   longitude: 2.3522,
   latitude: 48.8566,
   zoom: 11
 };
 
-function MapView({ geoJsonUrl, selectedArrondissement = "all", onMapClick}) {
+function MapView({ geoJsonUrl, selectedArrondissement = "all", onMapClick, onSelectArrondissement }) {
   const { data: arrondissementsData } = useGeoJsonData(geoJsonUrl);
   const { data: roadData } = useGeoJsonData("/data/voies.geojson");
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
@@ -66,6 +69,25 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all", onMapClick}) {
 
     setClickedPosition(nextPosition);
     onMapClick?.(nextPosition);
+
+    // Détection d'arrondissement via le GeoJSON chargé
+    try {
+      const pt = turfPoint([longitude, latitude]);
+      const features = arrondissementsData?.features || [];
+      for (const f of features) {
+        if (!f || !f.geometry) continue;
+        if (booleanPointInPolygon(pt, f)) {
+          const props = f.properties || {};
+          const code = props.code; // ex: "75102"
+          if (code) {
+            onSelectArrondissement?.(code);
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      // fail silently
+    }
 
     console.log("Coordonnees :", nextPosition);
   };

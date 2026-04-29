@@ -10,6 +10,8 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
+    "@turf/boolean-point-in-polygon": "^7.3.5",
+    "@turf/helpers": "^7.3.5",
     "leaflet": "^1.9.4",
     "maplibre-gl": "^5.22.0",
     "react": "^19.2.5",
