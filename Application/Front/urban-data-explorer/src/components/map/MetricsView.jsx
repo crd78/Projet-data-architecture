@@ -41,7 +41,7 @@ function FilterView({selectedYear,
 
               {selectedArrondissement === "all" && (
                 <div className="mt-2 text-sm text-slate-500">
-                  Sélectionne un arrondissement pour afficher la médiane.
+                  Veuillez sélectionner un arrondissement
                 </div>
               )}
 
