@@ -352,7 +352,7 @@ def nuisance_sonore(
     if not selected:
         return {
             "count": 0,
-            "message": "Aucun polygone ne contient ce point",
+            "message": "Aucune informations autour de ce lieu",
         }
 
     # calcul des moyennes

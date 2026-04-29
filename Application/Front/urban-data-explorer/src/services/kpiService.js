@@ -72,3 +72,14 @@ export function fetchPropreteGenerale(longitude, latitude, signal) {
     { signal }
   );
 }
+
+export function fetchNuisanceSonore(longitude, latitude, signal) {
+  return getJson(
+    "/kpi/nuisance_sonore",
+    {
+      longitude: String(longitude),
+      latitude: String(latitude),
+    },
+    { signal }
+  );
+}

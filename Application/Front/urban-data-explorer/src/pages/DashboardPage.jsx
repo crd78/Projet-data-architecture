@@ -10,6 +10,7 @@ import ArrondissementFilterView from "../components/map/ArrondissementFilterView
 import useDisponibiliteStationnement from "../hooks/useDisponibiliteStationnement";
 import useActiviteQuartier from "../hooks/useActiviteQuartier";
 import usePropreteGenerale from "../hooks/usePropreteGenerale";
+import useNuisanceSonore from "../hooks/useNuisanceSonore";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -85,6 +86,13 @@ function DashboardPage() {
     loading: propreteGeneraleLoading,
     error: propreteGeneraleError,
   } = usePropreteGenerale(clickedPosition);
+
+  // Score nuisance sonore
+  const {
+    data: nuisanceSonoreKpi,
+    loading: nuisanceSonoreLoading,
+    error: nuisanceSonoreError,
+  } = useNuisanceSonore(clickedPosition);
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -195,6 +203,34 @@ function DashboardPage() {
                       propreteGeneraleKpi?.proprete_score_moyen !== undefined && (
                         <div className="mt-2 text-lg font-bold text-blue-900">
                           {propreteGeneraleKpi.proprete_score_moyen}
+                        </div>
+                      )}
+                  </div>
+                )}
+                {/* Score nuisance sonore */}
+                {clickedPosition && (
+                  <div className="mt-4 border-t border-blue-100 pt-3">
+                    <div className="text-xs font-medium text-slate-600">Score de nuisance sonore</div>
+                    {nuisanceSonoreLoading && (
+                      <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+                    )}
+                    {!!nuisanceSonoreError && (
+                      <div className="mt-2 text-sm text-red-600">
+                        Erreur : {nuisanceSonoreError}
+                      </div>
+                    )}
+                    {!nuisanceSonoreLoading &&
+                      !nuisanceSonoreError &&
+                      nuisanceSonoreKpi?.message && (
+                        <div className="mt-2 text-xs text-slate-500">
+                          {nuisanceSonoreKpi.message}
+                        </div>
+                      )}
+                    {!nuisanceSonoreLoading &&
+                      !nuisanceSonoreError &&
+                      nuisanceSonoreKpi?.avg_nuisance_sonore_score !== undefined && (
+                        <div className="mt-2 text-lg font-bold text-blue-900">
+                          {nuisanceSonoreKpi.avg_nuisance_sonore_score}
                         </div>
                       )}
                   </div>
