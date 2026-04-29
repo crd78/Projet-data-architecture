@@ -528,3 +528,82 @@ def activite_quartier(
         "open_total": total_open,
         "close_total": total_close,
     }
+
+
+@router.get("/proprete_generale")
+def proprete_generale(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+    radius: float = Query(0.01),  # ~1km
+):
+    db = request.app.state.mongo_db
+
+    quartiers_col = db["quartiers_paris"]
+    proprete_col = db["proprete_general"]
+
+    point = Point(longitude, latitude)
+    buffer = point.buffer(radius)
+
+    # -------------------------
+    # 1. Quartiers proches (nom)
+    # -------------------------
+    quartiers_proches = []
+
+    for q in quartiers_col.find({}):
+        geometry = q.get("geometry")
+        if not geometry:
+            continue
+
+        try:
+            coords = extract_polygon(geometry)
+            if not coords or len(coords) < 3:
+                continue
+
+            poly = Polygon(coords)
+
+            if poly.intersects(buffer):
+                name = q.get("l_qu")
+
+                if name and name not in quartiers_proches:
+                    quartiers_proches.append(name)
+
+        except Exception:
+            continue
+
+    if not quartiers_proches:
+        return {
+            "count_quartiers": 0,
+            "message": "Aucun quartier dans le périmètre",
+        }
+
+    # -------------------------
+    # 2. Match propreté (SUR NOM comme tes autres KPIs)
+    # -------------------------
+    docs = proprete_col.find({"nom_quartier": {"$in": quartiers_proches}})
+
+    total_score = 0
+    count = 0
+    decl_totaux = {}
+
+    for d in docs:
+        total_score += d.get("proprete_score", 0) or 0
+
+        for k, v in d.items():
+            if k.startswith("decl_"):
+                decl_totaux[k] = decl_totaux.get(k, 0) + (v or 0)
+
+        count += 1
+
+    if count == 0:
+        return {
+            "quartiers": quartiers_proches,
+            "message": "Aucune donnée propreté",
+        }
+
+    return {
+        "quartiers": quartiers_proches,
+        "count_quartiers": len(quartiers_proches),
+        "proprete_score_moyen": round(total_score / count, 6),
+        "decl_totaux": decl_totaux,
+    }
