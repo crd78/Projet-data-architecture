@@ -458,7 +458,7 @@ def activite_quartier(
     point = Point(longitude, latitude)
     buffer = point.buffer(radius)
 
-    quartiers_proches = []
+    quartiers_proches_set = set()
 
     for q in quartiers_col.find({}):
         geometry = q.get("geometry")
@@ -473,10 +473,14 @@ def activite_quartier(
             poly = Polygon(coords)
 
             if poly.intersects(buffer):
-                quartiers_proches.append(q["l_qu"])
+                name = q.get("l_qu")
+                if name:
+                    quartiers_proches_set.add(name)
 
         except Exception:
             continue
+
+    quartiers_proches = sorted(quartiers_proches_set)
 
     if not quartiers_proches:
         return {

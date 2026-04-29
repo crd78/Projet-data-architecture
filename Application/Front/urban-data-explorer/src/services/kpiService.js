@@ -50,3 +50,14 @@ export function fetchDisponibiliteStationnement(longitude, latitude, signal) {
     { signal }
   );
 }
+
+export function fetchActiviteQuartier(longitude, latitude, signal) {
+  return getJson(
+    "/kpi/activite_quartier",
+    {
+      longitude: String(longitude),
+      latitude: String(latitude),
+    },
+    { signal }
+  );
+}

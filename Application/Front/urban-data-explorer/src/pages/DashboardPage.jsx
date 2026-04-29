@@ -8,6 +8,7 @@ import FilterView from "../components/map/MetricsView";
 import YearFilterView from "../components/map/YearFilter";
 import ArrondissementFilterView from "../components/map/ArrondissementFilterView";
 import useDisponibiliteStationnement from "../hooks/useDisponibiliteStationnement";
+import useActiviteQuartier from "../hooks/useActiviteQuartier";
 
 function geoCodeToArrNumber(code) {
   if (!code || code === "all") return null;
@@ -63,12 +64,19 @@ function DashboardPage() {
     setSelectedArrondissementB(nextValue);
   };
 
-  // Disponibilité stationnement
+  // Score stationnement
   const {
     data: disponibiliteStationnementKpi,
     loading: disponibiliteStationnementLoading,
     error: disponibiliteStationnementError,
   } = useDisponibiliteStationnement(clickedPosition);
+
+  // Score activité dans le quartier
+  const {
+    data: activiteQuartierKpi,
+    loading: activiteQuartierLoading,
+    error: activiteQuartierError,
+  } = useActiviteQuartier(clickedPosition);
 
   return (
     <main className="min-h-screen bg-slate-100">
@@ -87,44 +95,74 @@ function DashboardPage() {
               onMapClick={setClickedPosition}
             />
             <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-[360px] max-w-[calc(100%-2rem)]">
-              <div className="pointer-events-auto rounded-2xl border border-blue-100/60 bg-white/60 p-4 shadow-lg backdrop-blur-none">
+              <div className="pointer-events-auto rounded-2xl border border-blue-100/60 bg-white/60 p-4 shadow-lg backdrop-blur-sm">
                 <div className="text-sm font-semibold text-blue-900">
-                  Disponibilité stationnement
+                  Informations des quartiers proches
                 </div>
 
                 {!clickedPosition && (
                   <div className="mt-2 text-sm text-slate-500">
-                    Clique sur la carte pour calculer la KPI.
+                    Clique sur la carte pour calculer les KPI.
                   </div>
                 )}
 
-                {disponibiliteStationnementLoading && (
-                  <div className="mt-3 text-sm text-slate-500">Chargement…</div>
-                )}
-
-                {!!disponibiliteStationnementError && (
-                  <div className="mt-3 text-sm text-red-600">
-                    Erreur : {disponibiliteStationnementError}
-                  </div>
-                )}
-
-                {!disponibiliteStationnementLoading &&
-                  !disponibiliteStationnementError &&
-                  disponibiliteStationnementKpi?.message && (
-                    <div className="mt-3 text-sm text-slate-500">
-                      {disponibiliteStationnementKpi.message}
-                    </div>
-                  )}
-
-                {!disponibiliteStationnementLoading &&
-                  !disponibiliteStationnementError &&
-                  disponibiliteStationnementKpi?.disponibilite_stationnement_score_moyen !== undefined && (
-                    <div className="mt-3 flex items-baseline gap-2">
-                      <div className="text-sm font-medium text-slate-600">
-                        Score stationnement: <span className="font-bold text-blue-600">{disponibiliteStationnementKpi.disponibilite_stationnement_score_moyen}</span>
+                {/* Score stationnement */}
+                {clickedPosition && (
+                  <div className="mt-4 border-t border-blue-100 pt-3">
+                    <div className="text-xs font-medium text-slate-600">Score disponibilité stationnement</div>
+                    {disponibiliteStationnementLoading && (
+                      <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+                    )}
+                    {!!disponibiliteStationnementError && (
+                      <div className="mt-2 text-sm text-red-600">
+                        Erreur : {disponibiliteStationnementError}
                       </div>
-                    </div>
-                  )}
+                    )}
+                    {!disponibiliteStationnementLoading &&
+                      !disponibiliteStationnementError &&
+                      disponibiliteStationnementKpi?.message && (
+                        <div className="mt-2 text-xs text-slate-500">
+                          {disponibiliteStationnementKpi.message}
+                        </div>
+                      )}
+                    {!disponibiliteStationnementLoading &&
+                      !disponibiliteStationnementError &&
+                      disponibiliteStationnementKpi?.disponibilite_stationnement_score_moyen !== undefined && (
+                        <div className="mt-2 text-lg font-bold text-blue-900">
+                          {disponibiliteStationnementKpi.disponibilite_stationnement_score_moyen}
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {/* Score activité */}
+                {clickedPosition && (
+                  <div className="mt-4 border-t border-blue-100 pt-3">
+                    <div className="text-xs font-medium text-slate-600">Score activité quartier</div>
+                    {activiteQuartierLoading && (
+                      <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+                    )}
+                    {!!activiteQuartierError && (
+                      <div className="mt-2 text-sm text-red-600">
+                        Erreur : {activiteQuartierError}
+                      </div>
+                    )}
+                    {!activiteQuartierLoading &&
+                      !activiteQuartierError &&
+                      activiteQuartierKpi?.message && (
+                        <div className="mt-2 text-xs text-slate-500">
+                          {activiteQuartierKpi.message}
+                        </div>
+                      )}
+                    {!activiteQuartierLoading &&
+                      !activiteQuartierError &&
+                      activiteQuartierKpi?.activite_quartier_score_moyen !== undefined && (
+                        <div className="mt-2 text-lg font-bold text-blue-900">
+                          {activiteQuartierKpi.activite_quartier_score_moyen}
+                        </div>
+                      )}
+                  </div>
+                )}
               </div>
             </div>
 
