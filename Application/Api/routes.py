@@ -1,55 +1,96 @@
 from fastapi import APIRouter, Request, Query
+from .utils import extract_polygon
+from shapely.geometry import Point, Polygon
+from shapely.ops import transform
+import pyproj
 
 router = APIRouter()
 
+
 @router.get("/median_price_per_arrondissement")
 def median_per_arrondissement(
-        request: Request,
-        annee: int = Query(..., ge=2019, le=2023, description="Année"),
-        arrondissement: int = Query(..., ge=1, le=20, description="Arrondissement de Paris"),
-    ):
+    request: Request,
+    annee: int = Query(..., ge=2019, le=2023, description="Année"),
+    arrondissement: int = Query(
+        ..., ge=1, le=20, description="Arrondissement de Paris"
+    ),
+    mode: str = Query(
+        "location", pattern="^(location|achat)$", description="location|achat"
+    ),
+):
     db = request.app.state.mongo_db
-    collection = db["location_arrondissement"]
-    pipeline = [
-        {"$match": {
-            "annee": annee,
-            "secteurs_geographiques": arrondissement,
-            "nombre_de_pieces_principales": {"$type": "number"},
-        }},
-        {"$group": {
-            "_id": None,
-            "median_price_loyer": {
-                "$median": {"input": "$loyers_de_reference", "method": "approximate"}
+
+    if mode == "location":
+        collection = db["location_arrondissement"]
+        pipeline = [
+            {
+                "$match": {
+                    "annee": annee,
+                    "secteurs_geographiques": arrondissement,
+                    "loyers_de_reference": {"$type": "number"},
+                }
             },
-            "count": {"$sum": 1},
-        }},
-        {"$project": {
-            "_id": 0,
-            "count": 1,
-            "median_price_loyer": {"$round": ["$median_price_loyer", 2]},
-        }},
-    ]
-    
-    result = list(collection.aggregate(pipeline))
-    if not result:
+            {
+                "$group": {
+                    "_id": None,
+                    "median_price_loyer": {
+                        "$median": {
+                            "input": "$loyers_de_reference",
+                            "method": "approximate",
+                        }
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "count": 1,
+                    "median_price_loyer": {"$round": ["$median_price_loyer", 2]},
+                }
+            },
+        ]
+
+        result = list(collection.aggregate(pipeline))
+        if not result:
+            return {
+                "annee": annee,
+                "arrondissement": arrondissement,
+                "mode": mode,
+                "count": 0,
+                "median_price_loyer": None,
+            }
+
         return {
             "annee": annee,
             "arrondissement": arrondissement,
-            "count": 0,
-            "median_price_loyer": None,
+            "mode": mode,
+            **result[0],
         }
 
+    # mode == "achat"
+    label = f"{arrondissement}er" if arrondissement == 1 else f"{arrondissement}e"
+    doc = db["somme_prix_paris_par_annee"].find_one(
+        {"annee": annee},
+        {label: 1, "_id": 0},
+    )
+
+    price = doc.get(label) if doc else None
     return {
         "annee": annee,
         "arrondissement": arrondissement,
-        **result[0],
+        "mode": mode,
+        "median_price_achat": price,
     }
-    
+
+
 @router.get("/repartition_types_logements")
 def repartition_types_logements(
     request: Request,
     annee: int = Query(..., ge=2019, le=2023, description="Année"),
-    arrondissement: int = Query(..., ge=1, le=20, description="Arrondissement de Paris"),
+    arrondissement: int = Query(
+        ..., ge=1, le=20, description="Arrondissement de Paris"
+    ),
 ):
     db = request.app.state.mongo_db
     collection = db["location_arrondissement"]
@@ -62,11 +103,9 @@ def repartition_types_logements(
                 "loyers_de_reference": {"$type": "number"},
             }
         },
-        
         # Comptage par nombre de pièces
         {"$group": {"_id": "$nombre_de_pieces_principales", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
-        
         # Total
         {
             "$group": {
@@ -75,13 +114,12 @@ def repartition_types_logements(
                 "items": {"$push": {"pieces": "$_id", "count": "$count"}},
             }
         },
-        
         # Calcul des pourcentages
         {
             "$project": {
                 "_id": 0,
                 "total": 1,
-                    "logements_repartition": {
+                "logements_repartition": {
                     "$map": {
                         "input": "$items",
                         "as": "it",
@@ -91,7 +129,12 @@ def repartition_types_logements(
                             "count": "$$it.count",
                             "percentage": {
                                 "$round": [
-                                    {"$multiply": [{"$divide": ["$$it.count", "$total"]}, 100]},
+                                    {
+                                        "$multiply": [
+                                            {"$divide": ["$$it.count", "$total"]},
+                                            100,
+                                        ]
+                                    },
                                     2,
                                 ]
                             },
@@ -112,6 +155,7 @@ def repartition_types_logements(
         }
 
     return {"annee": annee, "arrondissement": arrondissement, **result[0]}
+
 
 @router.get("/accessibilite_loyer_revenu")
 def accessibilite_loyer_revenu(
@@ -141,16 +185,21 @@ def accessibilite_loyer_revenu(
             "$group": {
                 "_id": None,
                 "loyer_m2_median": {
-                    "$median": {"input": "$loyers_de_reference", "method": "approximate"}
+                    "$median": {
+                        "input": "$loyers_de_reference",
+                        "method": "approximate",
+                    }
                 },
                 "n_loyers": {"$sum": 1},
             }
         },
-        {"$project": {
-            "_id": 0,
-            "n_loyers": 1,
-            "loyer_m2_median": {"$round": ["$loyer_m2_median", 2]},
-        }},
+        {
+            "$project": {
+                "_id": 0,
+                "n_loyers": 1,
+                "loyer_m2_median": {"$round": ["$loyer_m2_median", 2]},
+            }
+        },
     ]
 
     loyer_res = list(loyers.aggregate(loyer_pipeline))
@@ -163,17 +212,24 @@ def accessibilite_loyer_revenu(
 
     loyer_m2 = loyer_res[0]["loyer_m2_median"]
 
-    # Revenu annuel médian 
+    # Revenu annuel médian
     revenus = db["population_niveau_vie"]
     iris_prefix = f"751{arrondissement:02d}"
 
     revenu_pipeline = [
         {"$match": {"iris": {"$regex": f"^{iris_prefix}"}}},
-        {"$addFields": {
-            "dec_med_num": {
-                "$convert": {"input": "$dec_med", "to": "double", "onError": None, "onNull": None}
+        {
+            "$addFields": {
+                "dec_med_num": {
+                    "$convert": {
+                        "input": "$dec_med",
+                        "to": "double",
+                        "onError": None,
+                        "onNull": None,
+                    }
+                }
             }
-        }},
+        },
         {"$match": {"dec_med_num": {"$ne": None}}},
         {
             "$group": {
@@ -197,7 +253,9 @@ def accessibilite_loyer_revenu(
     income_monthly = income_annual / 12.0
 
     # Formule de calcul de l'accessibilité : m² louable = (proportion du revenu * revenu_mensuel) / loyer_m2
-    m2_accessible = (revenu_proportion * income_monthly) / loyer_m2 if loyer_m2 else None
+    m2_accessible = (
+        (revenu_proportion * income_monthly) / loyer_m2 if loyer_m2 else None
+    )
 
     return {
         "annee": annee,
@@ -207,6 +265,7 @@ def accessibilite_loyer_revenu(
         "revenu_proportion": revenu_proportion,
         "m2_accessible": round(m2_accessible, 2) if m2_accessible is not None else None,
     }
+
 
 @router.get("/logements_sociaux_total")
 def logements_sociaux_total(
@@ -223,11 +282,15 @@ def logements_sociaux_total(
 
     pipeline = [
         {"$match": match},
-        {"$group": {
-            "_id": None,
-            "logements_sociaux_finances_total": {"$sum": "$nombre_total_de_logements_finances"},
-            "programmes_count": {"$sum": 1},
-        }},
+        {
+            "$group": {
+                "_id": None,
+                "logements_sociaux_finances_total": {
+                    "$sum": "$nombre_total_de_logements_finances"
+                },
+                "programmes_count": {"$sum": 1},
+            }
+        },
         {"$project": {"_id": 0}},
     ]
 
@@ -241,4 +304,67 @@ def logements_sociaux_total(
         }
 
     return {"annee": annee, "arrondissement": arrondissement, **res[0]}
-   
+
+
+@router.get("/nuisance_sonore")
+def kpi_nuisance_sonore(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+):
+
+    project_to_meters = pyproj.Transformer.from_crs(
+        "EPSG:4326", "EPSG:3857", always_xy=True
+    ).transform
+    project_to_wgs84 = pyproj.Transformer.from_crs(
+        "EPSG:3857", "EPSG:4326", always_xy=True
+    ).transform
+    db = request.app.state.mongo_db
+    collection = db["nuisance_sonore"]
+
+    point = Point(longitude, latitude)
+
+    docs = collection.find({})
+
+    selected = []
+
+    for doc in docs:
+        geo_shape = doc.get("geo_shape")
+        if not geo_shape:
+            continue
+
+        coords = extract_polygon(geo_shape)
+        if not coords or len(coords) < 3:
+            continue
+
+        try:
+            point = Point(longitude, latitude)
+
+            # projeter en mètres
+            poly = Polygon(coords)
+            buffer = point.buffer(0.01)
+            if poly.intersects(buffer):
+                selected.append(doc)
+        except Exception:
+            continue
+
+    if not selected:
+        return {
+            "count": 0,
+            "message": "Aucun polygone ne contient ce point",
+        }
+
+    # calcul des moyennes
+    def avg(field):
+        values = [
+            d.get(field) for d in selected if isinstance(d.get(field), (int, float))
+        ]
+        return round(sum(values) / len(values), 2) if values else None
+
+    return {
+        "count": len(selected),
+        "avg_coef_nature_travaux": avg("coef_nature_travaux"),
+        "avg_coef_encombrant": avg("coef_encombrant"),
+        "avg_nuisance_sonore_score": avg("nuisance_sonore_score"),
+        "avg_db_base": avg("db_base"),
+    }
