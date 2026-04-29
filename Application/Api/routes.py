@@ -447,3 +447,84 @@ def disponibilite_stationnement(
         "indice_trafic_quartier_moyen": round(total_trafic / count, 2),
         "disponibilite_stationnement_score_moyen": round(total_score / count, 2),
     }
+
+
+@router.get("/activite_quartier")
+def activite_quartier(
+    request: Request,
+    longitude: float = Query(...),
+    latitude: float = Query(...),
+    radius: float = Query(0.01),
+):
+    db = request.app.state.mongo_db
+
+    quartiers_col = db["quartiers_paris"]
+    activite_col = db["activite_quartier"]
+
+    point = Point(longitude, latitude)
+    buffer = point.buffer(radius)
+
+    # -------------------------
+    # 1. Trouver quartiers proches
+    # -------------------------
+    quartiers_proches = []
+
+    for q in quartiers_col.find({}):
+        geometry = q.get("geometry")
+        if not geometry:
+            continue
+
+        try:
+            coords = extract_polygon(geometry)
+            if not coords or len(coords) < 3:
+                continue
+
+            poly = Polygon(coords)
+
+            if poly.intersects(buffer):
+                quartiers_proches.append(q["l_qu"])
+
+        except Exception:
+            continue
+
+    if not quartiers_proches:
+        return {
+            "count_quartiers": 0,
+            "message": "Aucun quartier dans le périmètre",
+        }
+
+    # -------------------------
+    # 2. Join activité quartier
+    # -------------------------
+    docs = activite_col.find({"nom_quartier": {"$in": quartiers_proches}})
+
+    total_score = 0
+    total_gp_rating = 0
+    total_gp_user_rating_count = 0
+    total_open = 0
+    total_close = 0
+    count = 0
+
+    for d in docs:
+        total_score += d.get("activite_quartier_score", 0) or 0
+        total_gp_rating += d.get("gp_rating", 0) or 0
+        total_gp_user_rating_count += d.get("gp_user_rating_count", 0) or 0
+        total_open += d.get("open", 0) or 0
+        total_close += d.get("close", 0) or 0
+        count += 1
+
+    if count == 0:
+        return {
+            "quartiers": quartiers_proches,
+            "message": "Aucune donnée activité",
+        }
+
+    return {
+        "quartiers": quartiers_proches,
+        "count_quartiers": len(quartiers_proches),
+        "activite_quartier_score_moyen": round(total_score / count, 2),
+        "gp_rating_moyen": round(total_gp_rating / count, 2),
+        "gp_user_rating_count_total": total_gp_user_rating_count,
+        "open_total": total_open,
+        "close_total": total_close,
+    }
