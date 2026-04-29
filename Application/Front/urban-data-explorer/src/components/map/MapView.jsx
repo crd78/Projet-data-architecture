@@ -3,6 +3,7 @@ import DeckGL from "@deck.gl/react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import useGeoJsonData from "../../hooks/useGeoJsonData";
 import { createDistrictLayer, createRoadLayer } from "./GeoJsonLayer";
+import { IconLayer } from "@deck.gl/layers";
 
 const INITIAL_VIEW_STATE = {
   longitude: 2.3522,
@@ -14,6 +15,7 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
   const { data: arrondissementsData } = useGeoJsonData(geoJsonUrl);
   const { data: roadData } = useGeoJsonData("/data/voies.geojson");
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
+  const [clickedPosition, setClickedPosition] = useState(null);
 
   const layers = useMemo(() => {
     const output = [];
@@ -29,20 +31,38 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
       output.push(createRoadLayer(roadData));
     }
 
+    if (clickedPosition) {
+      output.push(
+        new IconLayer({
+          id: "click-marker",
+          data: [clickedPosition],
+          getPosition: (d) => [d.longitude, d.latitude],
+          getIcon: () => ({
+          url: "/marker.png",
+          width: 64,
+          height: 64,
+          anchorY: 64
+        }),
+        sizeScale: 1,
+        getSize: 30,
+        pickable: false
+        })
+      );
+    }
+
     return output;
 
-  }, [arrondissementsData, roadData, viewState.zoom, selectedArrondissement]);
+  }, [arrondissementsData, roadData, viewState.zoom, selectedArrondissement, clickedPosition]);
 
   const handleMapClick = (info) => {
     if (!info?.coordinate) return;
 
     const [longitude, latitude] = info.coordinate;
 
+    setClickedPosition({ longitude, latitude });
     console.log("Coordonnees :", {
       longitude,
-      latitude,
-      longitudeFixed: Number(longitude).toFixed(6),
-      latitudeFixed: Number(latitude).toFixed(6)
+      latitude
     });
   };
 
