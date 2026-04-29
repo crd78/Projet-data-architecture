@@ -1,0 +1,43 @@
+
+{
+  "nomenclature_commerces_paris": [
+    {
+      "categorie": "Restaurants & Restauration rapide",
+      "codes": [
+        { "code": "CH101", "libelle": "Restauration traditionnelle (Service à table)" },
+        { "code": "CH102", "libelle": "Restauration de chaînes" },
+        { "code": "CH103", "libelle": "Restauration d'influence étrangère" },
+        { "code": "CH106", "libelle": "Restauration rapide / Vente à emporter / Sandwicheries" }
+      ]
+    },
+    {
+      "categorie": "Épiceries & Alimentation",
+      "codes": [
+        { "code": "CA101", "libelle": "Épiceries générales / Supérettes" },
+        { "code": "CA102", "libelle": "Supermarchés et Hypermarchés" },
+        { "code": "CA103", "libelle": "Alimentation biologique / Magasins naturels" },
+        { "code": "CA111", "libelle": "Cavistes et commerces de boissons" },
+        { "code": "CA201", "libelle": "Boulangeries et Pâtisseries" },
+        { "code": "CA203", "libelle": "Boucheries et Charcuteries" }
+      ]
+    },
+    {
+      "categorie": "Bars & Vie nocturne",
+      "codes": [
+        { "code": "CH108", "libelle": "Cafés / Bars / Brasseries" },
+        { "code": "CH109", "libelle": "Débits de boissons spécialisés" },
+        { "code": "SA601", "libelle": "Discothèques et Boîtes de nuit" }
+      ]
+    },
+    {
+      "categorie": "Commerces de détail (Équipement & Maison)",
+      "codes": [
+        { "code": "CB101", "libelle": "Prêt-à-porter (Général)" },
+        { "code": "CB104", "libelle": "Habillement femme" },
+        { "code": "CB105", "libelle": "Habillement homme" },
+        { "code": "CD201", "libelle": "Décoration et Ameublement" },
+        { "code": "CC301", "libelle": "Opticiens" }
+      ]
+    }
+  ]
+}
