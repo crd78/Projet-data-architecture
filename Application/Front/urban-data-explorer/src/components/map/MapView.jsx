@@ -19,26 +19,9 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
     const output = [];
     const showRoads = viewState.zoom >= 12.3;
 
-    const filteredArrondissements =
-      arrondissementsData && selectedArrondissement !== "all"
-        ? {
-            ...arrondissementsData,
-            features: arrondissementsData.features.filter(
-              (f) => f?.properties?.code === selectedArrondissement
-            )
-          }
-        : arrondissementsData;
-
-    if (filteredArrondissements) {
+    if (arrondissementsData) {
       output.push(
-        createDistrictLayer(
-          {
-            ...filteredArrondissements,
-            features: filteredArrondissements.features
-          },
-          "nom",
-          !showRoads
-        )
+        createDistrictLayer(arrondissementsData, "nom", !showRoads, selectedArrondissement)
       );
     }
 
@@ -47,6 +30,7 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all" }) {
     }
 
     return output;
+
   }, [arrondissementsData, roadData, viewState.zoom, selectedArrondissement]);
 
   const handleMapClick = (info) => {

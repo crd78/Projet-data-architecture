@@ -1,6 +1,11 @@
 import { useState } from "react";
 
-function FilterView() {
+function FilterView({selectedYear,
+  selectedArrondissement,
+  arrondissementNumber,
+  medianKpi,
+  medianKpiLoading,
+  medianKpiError}) {
   const [activeTab, setActiveTab] = useState("temporal");
 
   const tabButtonBase = "rounded-xl px-5 py-2.5 text-base font-semibold transition-colors";
@@ -32,7 +37,27 @@ function FilterView() {
         {activeTab === "temporal" && (
           <>
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
-              Metrics 1 : Prix médian au mètre carré
+              <div className="font-semibold">Loyer médian (€/m²)</div>
+
+              {selectedArrondissement === "all" && (
+                <div className="mt-2 text-sm text-slate-500">
+                  Sélectionne un arrondissement pour afficher la médiane.
+                </div>
+              )}
+
+              {medianKpiLoading && (
+                <div className="mt-2 text-sm text-slate-500">Chargement…</div>
+              )}
+
+              {!!medianKpiError && (
+                <div className="mt-2 text-sm text-red-600">Erreur : {medianKpiError}</div>
+              )}
+
+              {!medianKpiLoading && !medianKpiError && selectedArrondissement !== "all" && (
+                <div className="mt-3 text-2xl font-bold text-blue-900">
+                  {medianKpi?.median_price_loyer ?? "Pas de donnée"}
+                </div>
+              )}
             </div>
             <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
               Metrics 2 : Répartition du parc immobilier

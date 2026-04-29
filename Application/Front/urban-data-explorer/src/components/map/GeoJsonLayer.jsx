@@ -34,11 +34,18 @@ function hslToRgba(h, s, l, a) {
     Math.round((r + m) * 255),
     Math.round((g + m) * 255),
     Math.round((b + m) * 255),
-    a
+    a,
   ];
 }
 
-export function createDistrictLayer(data, colorProperty = "nom", pickable = true) {
+export function createDistrictLayer(
+  data,
+  colorProperty = "nom",
+  pickable = true,
+  selectedCode = "all"
+) {
+  const hasSelection = selectedCode && selectedCode !== "all";
+
   return new DeckGeoJsonLayer({
     id: "district-layer",
     data,
@@ -46,13 +53,38 @@ export function createDistrictLayer(data, colorProperty = "nom", pickable = true
     stroked: true,
     filled: true,
     autoHighlight: true,
-    lineWidthMinPixels: 1.2,
+
     highlightColor: [255, 140, 0, 160],
-    getLineColor: [30, 64, 175, 220],
+
+    lineWidthUnits: "pixels",
+    lineWidthScale: 1,
+    lineWidthMinPixels: 1.2,
+
+    getLineColor: (feature) => {
+      const isSelected = hasSelection && feature?.properties?.code === selectedCode;
+      return isSelected ? [255, 140, 0, 255] : [30, 64, 175, 200];
+    },
+
+    getLineWidth: (feature) => {
+      const isSelected = hasSelection && feature?.properties?.code === selectedCode;
+      return isSelected ? 4 : 1.5;
+    },
+
     getFillColor: (feature) => {
       const [h, s, l] = colorFromString(feature?.properties?.[colorProperty]);
-      return hslToRgba(h, s, l, 90);
-    }
+      const isSelected = hasSelection && feature?.properties?.code === selectedCode;
+
+      // Tous restent visibles ; le sélectionné ressort surtout par le contour
+      const alpha = !hasSelection ? 90 : isSelected ? 140 : 90;
+      return hslToRgba(h, s, l, alpha);
+    },
+
+    updateTriggers: {
+    getLineColor: selectedCode,
+    getLineWidth: selectedCode,
+    getFillColor: selectedCode,
+  },
+  
   });
 }
 
@@ -68,6 +100,6 @@ export function createRoadLayer(data) {
     lineWidthScale: 1,
     lineWidthMinPixels: 1,
     getLineWidth: 1,
-    getLineColor: [37, 99, 235, 190]
+    getLineColor: [37, 99, 235, 190],
   });
 }
