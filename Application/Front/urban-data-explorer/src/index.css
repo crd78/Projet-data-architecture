@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,4 +8,109 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f7f9fb;
+  color: #191c1e;
+  font-family: Inter, Arial, sans-serif;
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+.glass-panel {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.68));
+  backdrop-filter: blur(12px) saturate(1.08);
+  box-shadow: 0 10px 25px -18px rgba(26, 31, 54, 0.35);
+}
+
+.inner-sheen {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0));
+}
+
+.map-canvas {
+  background-color: #e6e8ea;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(59, 130, 246, 0.18), transparent 36%, rgba(16, 185, 129, 0.14));
+  background-size: 28px 28px, 28px 28px, 100% 100%;
+}
+
+.urban-range {
+  height: 20px;
+  appearance: none;
+  background: transparent;
+}
+
+.urban-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1a1f36, #3b82f6 56%, #10b981);
+}
+
+.urban-range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1a1f36, #3b82f6 56%, #10b981);
+}
+
+.urban-range::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  appearance: none;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #03071d;
+  box-shadow: 0 6px 14px rgba(3, 7, 29, 0.24);
+}
+
+.urban-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #03071d;
+  box-shadow: 0 6px 14px rgba(3, 7, 29, 0.24);
+}
+
+.urban-scrollbar {
+  scrollbar-color: #c7c5ce transparent;
+  scrollbar-width: thin;
+}
+
+.urban-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.urban-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.urban-scrollbar::-webkit-scrollbar-thumb {
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #c7c5ce;
+}
+
+.deck-tooltip {
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: 8px !important;
+  background: rgba(26, 31, 54, 0.9) !important;
+  color: #ffffff !important;
+  font-family: Inter, Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
 }

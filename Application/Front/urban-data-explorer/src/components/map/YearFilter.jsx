@@ -1,22 +1,44 @@
+const YEARS = [2019, 2020, 2021, 2022, 2023];
+
 function YearFilterView({ year, onYearChange }) {
   return (
-    <div className="rounded-xl border border-blue-100 bg-white/95 p-3 shadow-lg backdrop-blur">
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <label
+          htmlFor="year-filter"
+          className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#77767e]"
+        >
+          Millésime
+        </label>
+        <span className="rounded-full bg-[#1a1f36] px-3 py-1 font-['Space_Grotesk'] text-xs font-medium text-white">
+          {year}
+        </span>
+      </div>
+
       <input
+        id="year-filter"
         type="range"
         min="2019"
         max="2023"
         step="1"
         value={year}
         onChange={(e) => onYearChange(Number(e.target.value))}
-        className="w-full accent-blue-700"
+        className="urban-range w-full"
       />
 
-      <div className="mt-2 flex justify-between text-xs text-slate-500">
-        <span>2019</span>
-        <span>2020</span>
-        <span>2021</span>
-        <span>2022</span>
-        <span>2023</span>
+      <div className="mt-2 grid grid-cols-5 text-center font-['Space_Grotesk'] text-[10px] font-medium text-[#77767e]">
+        {YEARS.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onYearChange(item)}
+            className={`rounded-md px-1 py-1 transition hover:bg-white/70 ${
+              item === year ? "text-[#03071d]" : ""
+            }`}
+          >
+            {item}
+          </button>
+        ))}
       </div>
     </div>
   );

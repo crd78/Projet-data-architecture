@@ -1,41 +1,52 @@
-import { GeoJsonLayer as DeckGeoJsonLayer } from "@deck.gl/layers";
+import { GeoJsonLayer as DeckGeoJsonLayer, TextLayer } from "@deck.gl/layers";
 
-function colorFromString(value) {
-  const str = String(value ?? "default");
-  let hash = 0;
+const DISTRICT_PALETTE = [
+  [59, 130, 246],
+  [16, 185, 129],
+  [14, 165, 233],
+  [0, 108, 73],
+  [88, 93, 119],
+  [0, 67, 149],
+];
 
-  for (let i = 0; i < str.length; i += 1) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  const hue = Math.abs(hash) % 360;
-  return [hue, 70, 48];
+function getArrondissementNumber(code) {
+  const match = String(code ?? "").match(/(\d{2})$/);
+  return match ? Number(match[1]) : 0;
 }
 
-function hslToRgba(h, s, l, a) {
-  const sat = s / 100;
-  const lig = l / 100;
-  const c = (1 - Math.abs(2 * lig - 1)) * sat;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = lig - c / 2;
+function getDistrictColor(feature) {
+  const index = getArrondissementNumber(feature?.properties?.code) % DISTRICT_PALETTE.length;
+  return DISTRICT_PALETTE[index];
+}
 
-  let r = 0;
-  let g = 0;
-  let b = 0;
+function collectPositions(coords, output = []) {
+  if (!Array.isArray(coords)) return output;
 
-  if (h < 60) [r, g, b] = [c, x, 0];
-  else if (h < 120) [r, g, b] = [x, c, 0];
-  else if (h < 180) [r, g, b] = [0, c, x];
-  else if (h < 240) [r, g, b] = [0, x, c];
-  else if (h < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
+  if (typeof coords[0] === "number" && typeof coords[1] === "number") {
+    output.push(coords);
+    return output;
+  }
 
-  return [
-    Math.round((r + m) * 255),
-    Math.round((g + m) * 255),
-    Math.round((b + m) * 255),
-    a,
-  ];
+  coords.forEach((child) => collectPositions(child, output));
+  return output;
+}
+
+function getFeatureCenter(feature) {
+  const positions = collectPositions(feature?.geometry?.coordinates);
+  if (!positions.length) return [2.3522, 48.8566];
+
+  const sum = positions.reduce(
+    (acc, position) => [acc[0] + position[0], acc[1] + position[1]],
+    [0, 0]
+  );
+
+  return [sum[0] / positions.length, sum[1] / positions.length];
+}
+
+function formatDistrictShortName(code) {
+  const number = getArrondissementNumber(code);
+  if (!number) return "";
+  return number === 1 ? "1er" : `${number}e`;
 }
 
 export function createDistrictLayer(
@@ -53,8 +64,7 @@ export function createDistrictLayer(
     stroked: true,
     filled: true,
     autoHighlight: true,
-
-    highlightColor: [255, 140, 0, 160],
+    highlightColor: [16, 185, 129, 95],
 
     lineWidthUnits: "pixels",
     lineWidthScale: 1,
@@ -62,29 +72,59 @@ export function createDistrictLayer(
 
     getLineColor: (feature) => {
       const isSelected = hasSelection && feature?.properties?.code === selectedCode;
-      return isSelected ? [255, 140, 0, 255] : [30, 64, 175, 200];
+      return isSelected ? [255, 255, 255, 245] : [26, 31, 54, 175];
     },
 
     getLineWidth: (feature) => {
       const isSelected = hasSelection && feature?.properties?.code === selectedCode;
-      return isSelected ? 4 : 1.5;
+      return isSelected ? 4 : 1.4;
     },
 
     getFillColor: (feature) => {
-      const [h, s, l] = colorFromString(feature?.properties?.[colorProperty]);
+      const color = getDistrictColor(feature?.properties?.[colorProperty] ? feature : null);
       const isSelected = hasSelection && feature?.properties?.code === selectedCode;
 
-      // Tous restent visibles ; le sélectionné ressort surtout par le contour
-      const alpha = !hasSelection ? 90 : isSelected ? 140 : 90;
-      return hslToRgba(h, s, l, alpha);
+      if (!hasSelection) return [...color, 105];
+      return isSelected ? [16, 185, 129, 190] : [...color, 62];
     },
 
     updateTriggers: {
-    getLineColor: selectedCode,
-    getLineWidth: selectedCode,
-    getFillColor: selectedCode,
-  },
-  
+      getLineColor: selectedCode,
+      getLineWidth: selectedCode,
+      getFillColor: selectedCode,
+    },
+  });
+}
+
+export function createDistrictLabelLayer(data, selectedCode = "all") {
+  const labels = (data?.features || []).map((feature) => ({
+    code: feature?.properties?.code,
+    label: formatDistrictShortName(feature?.properties?.code),
+    position: getFeatureCenter(feature),
+  }));
+  const hasSelection = selectedCode && selectedCode !== "all";
+
+  return new TextLayer({
+    id: "district-label-layer",
+    data: labels,
+    pickable: false,
+    getPosition: (d) => d.position,
+    getText: (d) => d.label,
+    getSize: (d) => (hasSelection && d.code === selectedCode ? 18 : 13),
+    getColor: (d) =>
+      hasSelection && d.code === selectedCode ? [3, 7, 29, 245] : [3, 7, 29, 170],
+    getAngle: 0,
+    getTextAnchor: "middle",
+    getAlignmentBaseline: "center",
+    fontFamily: "Inter, Arial, sans-serif",
+    fontWeight: 700,
+    outlineColor: [255, 255, 255, 210],
+    outlineWidth: 3,
+    sizeUnits: "pixels",
+    updateTriggers: {
+      getSize: selectedCode,
+      getColor: selectedCode,
+    },
   });
 }
 
@@ -96,10 +136,10 @@ export function createRoadLayer(data) {
     stroked: true,
     filled: false,
     autoHighlight: true,
-    highlightColor: [15, 23, 42, 180],
+    highlightColor: [16, 185, 129, 180],
     lineWidthScale: 1,
     lineWidthMinPixels: 1,
     getLineWidth: 1,
-    getLineColor: [37, 99, 235, 190],
+    getLineColor: [59, 130, 246, 185],
   });
 }
