@@ -422,6 +422,25 @@ def location_arrondissement():
     _write_sql("location_arrondissement", df)
 
 
+def somme_prix_paris_par_annee():
+    path = KPI_PERSONNALISE_DIR / "Somme_Prix_Paris_Par_Annee_2019_2024.parquet"
+    df = pd.read_parquet(path)
+
+    if "annee" in df.columns:
+        df["annee"] = pd.to_numeric(df["annee"], errors="coerce").astype("Int64")
+
+    numeric_columns = ["1er", *[f"{arrondissement}e" for arrondissement in range(2, 21)]]
+    numeric_columns += ["somme_paris_annuelle", "moyenne_paris_annuelle"]
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    if "annee" in df.columns:
+        df = df.sort_values("annee").reset_index(drop=True)
+
+    _write_sql("somme_prix_paris_par_annee", df)
+
+
 def _normalize_iris(series: pd.Series) -> pd.Series:
     return series.astype("string").str.replace(r"\.0$", "", regex=True)
 
@@ -459,6 +478,10 @@ def population_niveau_vie():
                 col_dec_pimp: "dec_pimp",
             }
         )
+        parts = file_path.split(".")[0]
+        parts = parts.split("_")
+        year = next((p for p in parts if re.fullmatch(r"\d{4}", p)), None)
+        df["année"] = year
         df["iris"] = _normalize_iris(df["iris"])
         frames.append(df[df["iris"].str.startswith("75", na=False)])
 
