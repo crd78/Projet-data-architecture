@@ -312,7 +312,7 @@ def nuisance_sonore(
     request: Request,
     longitude: float = Query(...),
     latitude: float = Query(...),
-    radius: float = Query(0.01),
+    radius: float = Query(0.03),
 ):
 
     project_to_meters = pyproj.Transformer.from_crs(
@@ -591,7 +591,6 @@ def activite_quartier(
         "quartiers": quartiers_proches,
         "count_quartiers": len(quartiers_proches),
         "activite_quartier_score_moyen": scaled_0_100,
-        "normalize_method": "log10_then_minmax",
         "gp_rating_moyen": round(total_gp_rating / count, 2) if count else 0.0,
         "gp_user_rating_count_total": total_gp_user_rating_count,
         "open_total": total_open,

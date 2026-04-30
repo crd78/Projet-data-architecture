@@ -70,7 +70,6 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all", onMapClick, onSel
     setClickedPosition(nextPosition);
     onMapClick?.(nextPosition);
 
-    // Détection d'arrondissement via le GeoJSON chargé
     try {
       const pt = turfPoint([longitude, latitude]);
       const features = arrondissementsData?.features || [];

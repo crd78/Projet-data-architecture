@@ -114,7 +114,7 @@ function DashboardPage() {
             <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-[360px] max-w-[calc(100%-2rem)]">
               <div className="pointer-events-auto rounded-2xl border border-blue-100/60 bg-white/60 p-4 shadow-lg backdrop-blur-sm">
                 <div className="text-sm font-semibold text-blue-900">
-                  Informations des quartiers proches
+                  Informations autour du point
                 </div>
 
                 {!clickedPosition && (
@@ -123,7 +123,6 @@ function DashboardPage() {
                   </div>
                 )}
 
-                {/* Score stationnement */}
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
                     <div className="text-xs font-medium text-slate-600">Score disponibilité stationnement</div>
@@ -152,7 +151,6 @@ function DashboardPage() {
                   </div>
                 )}
 
-                {/* Score activité */}
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
                     <div className="text-xs font-medium text-slate-600">Score activité quartier</div>
@@ -180,7 +178,7 @@ function DashboardPage() {
                       )}
                   </div>
                 )}
-                {/* Score propreté */}
+
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
                     <div className="text-xs font-medium text-slate-600">Propreté générale</div>
@@ -208,7 +206,7 @@ function DashboardPage() {
                       )}
                   </div>
                 )}
-                {/* Score nuisance sonore */}
+                
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
                     <div className="text-xs font-medium text-slate-600">Score de nuisance sonore</div>
