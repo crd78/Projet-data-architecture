@@ -363,12 +363,41 @@ def nuisance_sonore(
         ]
         return round(sum(values) / len(values), 2) if values else None
 
+    avg_coef_nature = avg("coef_nature_travaux")
+    avg_coef_encombrant = avg("coef_encombrant")
+    avg_nuisance = avg("nuisance_sonore_score")
+    avg_db_base = avg("db_base")
+
+    # valeurs brutes pour normalisation
+    scores = [float(d.get("nuisance_sonore_score") or 0) for d in selected]
+    n_scores = len(scores)
+    avg_score_raw = round(sum(scores) / n_scores, 2) if n_scores else 0.0
+
+    # récupérer / calculer max global log (cache simple sur app.state)
+    cached = getattr(request.app.state, "nuisance_max_log", None)
+    if cached is None:
+        agg = collection.aggregate(
+            [{"$group": {"_id": None, "maxScore": {"$max": "$nuisance_sonore_score"}}}]
+        )
+        agg_res = list(agg)
+        max_score_global = float(agg_res[0].get("maxScore") or 0) if agg_res else 0.0
+        max_log = math.log10(max_score_global + 1) if max_score_global > 0 else 1.0
+        request.app.state.nuisance_max_log = max_log
+    else:
+        max_log = cached
+
+    # log-transform puis mise à l'échelle 0-100
+    log_avg = (
+        round(math.log10(avg_score_raw + 1), 4) if avg_score_raw is not None else 0.0
+    )
+    scaled_0_100 = round((log_avg / max_log) * 100, 2) if max_log > 0 else 0.0
+
     return {
         "count": len(selected),
-        "avg_coef_nature_travaux": avg("coef_nature_travaux"),
-        "avg_coef_encombrant": avg("coef_encombrant"),
-        "avg_nuisance_sonore_score": avg("nuisance_sonore_score"),
-        "avg_db_base": avg("db_base"),
+        "avg_coef_nature_travaux": avg_coef_nature,
+        "avg_coef_encombrant": avg_coef_encombrant,
+        "avg_db_base": avg_db_base,
+        "avg_nuisance_sonore_score": scaled_0_100,
     }
 
 
