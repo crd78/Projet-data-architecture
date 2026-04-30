@@ -3,6 +3,7 @@ from .utils import extract_polygon
 from shapely.geometry import Point, Polygon
 from shapely.ops import transform
 import pyproj
+import math
 
 router = APIRouter()
 
@@ -488,34 +489,58 @@ def activite_quartier(
             "message": "Aucun quartier dans le périmètre",
         }
 
-    docs = activite_col.find({"nom_quartier": {"$in": quartiers_proches}})
-
-    total_score = 0
-    total_gp_rating = 0
-    total_gp_user_rating_count = 0
-    total_open = 0
-    total_close = 0
-    count = 0
-
-    for d in docs:
-        total_score += d.get("activite_quartier_score", 0) or 0
-        total_gp_rating += d.get("gp_rating", 0) or 0
-        total_gp_user_rating_count += d.get("gp_user_rating_count", 0) or 0
-        total_open += d.get("open", 0) or 0
-        total_close += d.get("close", 0) or 0
-        count += 1
-
-    if count == 0:
+    # docs = activite_col.find({"nom_quartier": {"$in": quartiers_proches}})
+    docs_list = list(activite_col.find({"nom_quartier": {"$in": quartiers_proches}}))
+    if not docs_list:
         return {
             "quartiers": quartiers_proches,
             "message": "Aucune donnée activité",
         }
 
+    scores = [float(d.get("activite_quartier_score") or 0) for d in docs_list]
+    gp_ratings = [float(d.get("gp_rating") or 0) for d in docs_list]
+    gp_user_counts = [float(d.get("gp_user_rating_count") or 0) for d in docs_list]
+    opens = [int(d.get("open") or 0) for d in docs_list]
+    closes = [int(d.get("close") or 0) for d in docs_list]
+
+    count = len(docs_list)
+    total_score = sum(scores)
+    total_gp_rating = sum(gp_ratings)
+    total_gp_user_rating_count = sum(gp_user_counts)
+    total_open = sum(opens)
+    total_close = sum(closes)
+
+    avg_score = round(total_score / count, 2) if count else 0.0
+
+    cached = getattr(request.app.state, "activite_max_log", None)
+    if cached is None:
+        agg = activite_col.aggregate(
+            [
+                {
+                    "$group": {
+                        "_id": None,
+                        "maxScore": {"$max": "$activite_quartier_score"},
+                    }
+                }
+            ]
+        )
+        agg_res = list(agg)
+        max_score_global = float(agg_res[0].get("maxScore") or 0) if agg_res else 0.0
+        max_log = math.log10(max_score_global + 1) if max_score_global > 0 else 1.0
+        request.app.state.activite_max_log = max_log
+    else:
+        max_log = cached
+
+    # ensuite on scale avec max_log
+    log_avg = round(math.log10(avg_score + 1), 4) if avg_score is not None else 0.0
+    scaled_0_100 = round((log_avg / max_log) * 100, 2) if max_log > 0 else 0.0
+
     return {
         "quartiers": quartiers_proches,
         "count_quartiers": len(quartiers_proches),
-        "activite_quartier_score_moyen": round(total_score / count, 2),
-        "gp_rating_moyen": round(total_gp_rating / count, 2),
+        "activite_quartier_score_moyen": scaled_0_100,
+        "normalize_method": "log10_then_minmax",
+        "gp_rating_moyen": round(total_gp_rating / count, 2) if count else 0.0,
         "gp_user_rating_count_total": total_gp_user_rating_count,
         "open_total": total_open,
         "close_total": total_close,
