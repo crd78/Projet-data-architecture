@@ -1,10 +1,13 @@
 Pipeline/src/.tmp_dagster_home_3x_vrxpu/
 
+Pipeline/src/.tmp_dagster_home_*/
+
 Pipeline/datasets_finaux/
 
 Pipeline/src/__pycache__/
 
 Pipeline/src/Silver/__pycache__/
+
 
 Pipeline/dagster_home/
 
@@ -12,3 +15,10 @@ Application/Api/__pycache__/
 Application/Front/urban-data-explorer/node_modules/
 Application/Front/urban-data-explorer/.env
 Application/__pycache__/
+
+venv
+
+.tmp_dagster_home_*/
+
+Pipeline/dagster_home/
+.claude

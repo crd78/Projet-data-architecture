@@ -1,8 +1,13 @@
 dagster
 dagit
+dagster-celery
+celery
+redis
 pandas
 geopandas
 pyarrow
 openpyxl
+
 fastapi
 uvicorn[standard]
+pymongo

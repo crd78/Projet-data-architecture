@@ -47,7 +47,6 @@ if __name__ == "__main__":
     conn = sqlite3.connect(DB_PATH)
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     mongo_db = client[DB_NAME]
-
     tables = list_tables(conn)
 
     for table in tables:
