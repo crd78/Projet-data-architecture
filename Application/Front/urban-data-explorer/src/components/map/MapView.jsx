@@ -86,10 +86,8 @@ function MapView({ geoJsonUrl, selectedArrondissement = "all", onMapClick, onSel
         }
       }
     } catch (e) {
-      // fail silently
     }
 
-    console.log("Coordonnees :", nextPosition);
   };
 
   return (
