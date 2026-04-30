@@ -413,34 +413,58 @@ def disponibilite_stationnement(
             "message": "Aucun quartier dans le périmètre",
         }
 
-    docs = parking_col.find({"nom_quartier": {"$in": quartiers_proches}})
-
-    total_places_voirie = 0
-    total_places_parking_public = 0
-    total_trafic = 0
-    total_score = 0
-    count = 0
-
-    for d in docs:
-        total_places_voirie += d.get("nombre_places_voirie", 0) or 0
-        total_places_parking_public += d.get("nombre_places_parking_public", 0) or 0
-        total_trafic += d.get("indice_trafic_quartier", 0) or 0
-        total_score += d.get("disponibilite_stationnement_score", 0) or 0
-        count += 1
-
-    if count == 0:
+    # récupérer les documents en liste pour réutilisation
+    docs_list = list(parking_col.find({"nom_quartier": {"$in": quartiers_proches}}))
+    if not docs_list:
         return {
             "quartiers": quartiers_proches,
             "message": "Aucune donnée stationnement",
         }
+
+    # agrégations simples
+    total_places_voirie = sum(
+        (d.get("nombre_places_voirie", 0) or 0) for d in docs_list
+    )
+    total_places_parking_public = sum(
+        (d.get("nombre_places_parking_public", 0) or 0) for d in docs_list
+    )
+    trafics = [float(d.get("indice_trafic_quartier") or 0) for d in docs_list]
+    scores = [float(d.get("disponibilite_stationnement_score") or 0) for d in docs_list]
+
+    count = len(docs_list)
+    indice_trafic_moyen = round(sum(trafics) / count, 2) if count else None
+    avg_score = round(sum(scores) / count, 2) if count else 0.0
+
+    # normalisation stable : log10 + min-max avec max calculé globalement et mis en cache
+    cached = getattr(request.app.state, "disponibilite_stationnement_max_log", None)
+    if cached is None:
+        agg = parking_col.aggregate(
+            [
+                {
+                    "$group": {
+                        "_id": None,
+                        "maxScore": {"$max": "$disponibilite_stationnement_score"},
+                    }
+                }
+            ]
+        )
+        agg_res = list(agg)
+        max_score_global = float(agg_res[0].get("maxScore") or 0) if agg_res else 0.0
+        max_log = math.log10(max_score_global + 1) if max_score_global > 0 else 1.0
+        request.app.state.disponibilite_stationnement_max_log = max_log
+    else:
+        max_log = cached
+
+    log_avg = round(math.log10(avg_score + 1), 4) if avg_score is not None else 0.0
+    scaled_0_100 = round((log_avg / max_log) * 100, 2) if max_log > 0 else 0.0
 
     return {
         "quartiers": quartiers_proches,
         "count_quartiers": len(quartiers_proches),
         "nombre_places_voirie": total_places_voirie,
         "nombre_places_parking_public": total_places_parking_public,
-        "indice_trafic_quartier_moyen": round(total_trafic / count, 2),
-        "disponibilite_stationnement_score_moyen": round(total_score / count, 2),
+        "indice_trafic_quartier_moyen": indice_trafic_moyen,
+        "disponibilite_stationnement_score_moyen": scaled_0_100,
     }
 
 
@@ -489,7 +513,6 @@ def activite_quartier(
             "message": "Aucun quartier dans le périmètre",
         }
 
-    # docs = activite_col.find({"nom_quartier": {"$in": quartiers_proches}})
     docs_list = list(activite_col.find({"nom_quartier": {"$in": quartiers_proches}}))
     if not docs_list:
         return {
