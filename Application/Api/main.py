@@ -1,0 +1,33 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from .database import create_mongo_client, get_mongo_db
+from .routes import router
+
+app = FastAPI(title="API ville de Paris")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+def startup():
+    app.state.mongo_client = create_mongo_client()
+    app.state.mongo_db = get_mongo_db(app.state.mongo_client)
+
+
+@app.on_event("shutdown")
+def shutdown():
+    app.state.mongo_client.close()
+
+
+app.include_router(router, prefix="/kpi")
+
+
+@app.get("/")
+def root():
+    return {"message": "API ville de Paris - Utilisez /docs pour la documentation"}

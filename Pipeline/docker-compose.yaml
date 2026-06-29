@@ -1,51 +1,57 @@
-version: "3.8"
 services:
   dagster-web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     ports:
       - "3000:3000"
     environment:
       - DAGSTER_HOME=/opt/dagster/dagster_home
+      - DAGSTER_USE_CELERY=${DAGSTER_USE_CELERY:-0}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_DEFAULT_QUEUE=dagster
     command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-f", "src/definition.py", "-d", "/app/src"]
     depends_on:
       - redis
     volumes:
       - ./dagster_home:/opt/dagster/dagster_home
+      - ./datasets_finaux:/app/datasets_finaux
 
   dagster-daemon:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     environment:
       - DAGSTER_HOME=/opt/dagster/dagster_home
+      - DAGSTER_USE_CELERY=${DAGSTER_USE_CELERY:-0}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_DEFAULT_QUEUE=dagster
     command: ["dagster-daemon", "run", "-f", "src/definition.py", "-d", "/app/src"]
     depends_on:
       - redis
     volumes:
       - ./dagster_home:/opt/dagster/dagster_home
+      - ./datasets_finaux:/app/datasets_finaux
 
   celery-worker:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     environment:
       - DAGSTER_HOME=/opt/dagster/dagster_home
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_DEFAULT_QUEUE=dagster
     command: ["celery", "-A", "src.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "dagster", "--concurrency=2"]
     depends_on:
       - redis
     volumes:
       - ./dagster_home:/opt/dagster/dagster_home
+      - ./datasets_finaux:/app/datasets_finaux
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
-
-
-
-
-
-
-      
