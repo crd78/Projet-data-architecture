@@ -158,21 +158,6 @@ def location_arrondissement(context: AssetExecutionContext) -> MaterializeResult
     return MaterializeResult(metadata={"path": MetadataValue.path(str(out))})
 
 
-@asset(
-    name="gold_somme_prix_paris_par_annee",
-    group_name="gold",
-    deps=[AssetKey("silver_kpi_personnalise_enriched"), AssetKey("gold_location_arrondissement")],
-)
-def somme_prix_paris_par_annee(context: AssetExecutionContext) -> MaterializeResult:
-    from . import datamart
-
-    datamart.somme_prix_paris_par_annee()
-    df = _read_table("somme_prix_paris_par_annee")
-    out = GOLD_DIR / "somme_prix_paris_par_annee.parquet"
-    df.to_parquet(out, index=False)
-    return MaterializeResult(metadata={"path": MetadataValue.path(str(out))})
-
-
 all_gold_assets = [
     quartiers_paris,
     prix_arrondissement,
@@ -183,5 +168,4 @@ all_gold_assets = [
     population_niveau_vie,
     logement_sociaux,
     location_arrondissement,
-    somme_prix_paris_par_annee,
 ]

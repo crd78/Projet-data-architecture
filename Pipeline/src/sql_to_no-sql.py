@@ -15,6 +15,7 @@ def migrate_table(conn, mongo_db, table):
     cur = conn.execute(f'SELECT * FROM "{table}"')
 
     coll = mongo_db[table]
+    coll.delete_many({})
     batch = []
     total = 0
 

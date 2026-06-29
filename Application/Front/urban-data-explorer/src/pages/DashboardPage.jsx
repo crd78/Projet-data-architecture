@@ -125,7 +125,7 @@ function DashboardPage() {
 
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
-                    <div className="text-xs font-medium text-slate-600">Score disponibilité stationnement</div>
+                    <div className="text-xs font-medium text-slate-600">Score disponibilité stationnement /100</div>
                     {disponibiliteStationnementLoading && (
                       <div className="mt-2 text-sm text-slate-500">Chargement…</div>
                     )}
@@ -153,7 +153,7 @@ function DashboardPage() {
 
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
-                    <div className="text-xs font-medium text-slate-600">Score activité quartier</div>
+                    <div className="text-xs font-medium text-slate-600">Score activité quartier /100</div>
                     {activiteQuartierLoading && (
                       <div className="mt-2 text-sm text-slate-500">Chargement…</div>
                     )}
@@ -181,7 +181,7 @@ function DashboardPage() {
 
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
-                    <div className="text-xs font-medium text-slate-600">Propreté générale</div>
+                    <div className="text-xs font-medium text-slate-600">Propreté générale /100</div>
                     {propreteGeneraleLoading && (
                       <div className="mt-2 text-sm text-slate-500">Chargement…</div>
                     )}
@@ -209,7 +209,7 @@ function DashboardPage() {
                 
                 {clickedPosition && (
                   <div className="mt-4 border-t border-blue-100 pt-3">
-                    <div className="text-xs font-medium text-slate-600">Score de nuisance sonore</div>
+                    <div className="text-xs font-medium text-slate-600">Score de nuisance sonore /100</div>
                     {nuisanceSonoreLoading && (
                       <div className="mt-2 text-sm text-slate-500">Chargement…</div>
                     )}

@@ -2,7 +2,7 @@ import { formatNumber } from "../../utils/formatters";
 
 function formatAchat(value) {
   if (value === null || value === undefined) return "—";
-  return Number(value) / 4;
+  return Number(value);
 }
 
 function KpiMedianPricesCard({

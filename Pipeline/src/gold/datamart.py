@@ -1,4 +1,5 @@
 import glob
+import math
 import re
 import sqlite3
 import unicodedata
@@ -98,6 +99,35 @@ def _drop_without_quartier(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna(subset=["num_quartier", "nom_quartier"]).copy()
 
 
+def _score_sur_100(series: pd.Series, *, higher_is_better: bool = True) -> pd.Series:
+    values = pd.to_numeric(series, errors="coerce").fillna(0).clip(lower=0)
+    max_value = values.max()
+    if pd.isna(max_value) or max_value <= 0:
+        return pd.Series(0.0, index=series.index)
+
+    max_log = math.log10(max_value + 1)
+    normalized = values.map(lambda value: (math.log10(value + 1) / max_log) * 100)
+    if not higher_is_better:
+        normalized = 100 - normalized
+    return normalized.round(2)
+
+
+def _set_score_columns(
+    df: pd.DataFrame,
+    score_column: str,
+    *,
+    higher_is_better: bool = True,
+    raw_digits: int = 6,
+) -> pd.DataFrame:
+    raw_values = pd.to_numeric(df[score_column], errors="coerce")
+    normalized = _score_sur_100(raw_values, higher_is_better=higher_is_better)
+
+    df[f"{score_column}_brut"] = raw_values.round(raw_digits)
+    df[score_column] = normalized
+    df[f"{score_column}_sur_100"] = normalized
+    return df
+
+
 def quartiers_paris():
     df = _read_parquet(QUARTIERS_PATH)
     result = _with_api_quartier_columns(df)
@@ -143,6 +173,7 @@ def activite_quartier():
         + result["gp_rating"] * 10
         - result["close"] * 5
     )
+    result = _set_score_columns(result, "activite_quartier_score", raw_digits=2)
     _write_sql("activite_quartier", _with_api_quartier_columns(result))
 
 
@@ -181,6 +212,7 @@ def nuisance_sonore():
         nuisance_sonore_score=("nuisance_sonore_score", "sum"),
         date_fin_max=("date_fin_du_chantier", "max"),
     ).reset_index()
+    result = _set_score_columns(result, "nuisance_sonore_score", raw_digits=2)
 
     _write_sql("nuisance_sonore", _with_api_quartier_columns(result))
 
@@ -261,6 +293,7 @@ def disponibilite_stationnement():
         result["nombre_places_voirie"] * 0.6
         + result["nombre_places_parking_public"] * 0.4
     )
+    result = _set_score_columns(result, "disponibilite_stationnement_score", raw_digits=2)
 
     _write_sql("disponibilite_stationnement", _with_api_quartier_columns(result))
 
@@ -308,6 +341,12 @@ def proprete_general():
     counts["proprete_score"] = counts["somme_poids_type"] / pd.to_numeric(
         counts["surface_quartier"], errors="coerce"
     ).replace(0, pd.NA)
+    counts = _set_score_columns(
+        counts,
+        "proprete_score",
+        higher_is_better=False,
+        raw_digits=6,
+    )
 
     counts = counts.rename(
         columns={

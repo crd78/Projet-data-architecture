@@ -1,11 +1,39 @@
 from fastapi import APIRouter, Request, Query
 from .utils import extract_polygon
 from shapely.geometry import Point, Polygon
-from shapely.ops import transform
-import pyproj
-import math
 
 router = APIRouter()
+
+
+def avg_number(docs, field, digits=2):
+    values = [float(d.get(field)) for d in docs if isinstance(d.get(field), (int, float))]
+    return round(sum(values) / len(values), digits) if values else None
+
+
+def _find_nearby_quartiers(quartiers_col, longitude: float, latitude: float, radius: float) -> list[str]:
+    point = Point(longitude, latitude)
+    buffer = point.buffer(radius)
+    quartiers = []
+
+    for q in quartiers_col.find({}):
+        geometry = q.get("geometry") or q.get("geo_shape")
+        if not geometry:
+            continue
+
+        try:
+            coords = extract_polygon(geometry)
+            if not coords or len(coords) < 3:
+                continue
+
+            poly = Polygon(coords)
+            if poly.intersects(buffer):
+                name = q.get("nom_quartier") or q.get("l_qu")
+                if name and name not in quartiers:
+                    quartiers.append(name)
+        except Exception:
+            continue
+
+    return quartiers
 
 
 @router.get("/median_price_per_arrondissement")
@@ -70,18 +98,19 @@ def median_per_arrondissement(
         }
 
     # mode == "achat"
-    label = f"{arrondissement}er" if arrondissement == 1 else f"{arrondissement}e"
-    doc = db["somme_prix_paris_par_annee"].find_one(
-        {"annee": annee},
-        {label: 1, "_id": 0},
+    code_geo = f"751{arrondissement:02d}"
+    doc = db["prix_arrondissement"].find_one(
+        {"code_geo": code_geo},
+        {"med_prix_m2_whole_apt_maison": 1, "_id": 0},
     )
 
-    price = doc.get(label) if doc else None
+    price = doc.get("med_prix_m2_whole_apt_maison") if doc else None
     return {
         "annee": annee,
         "arrondissement": arrondissement,
         "mode": mode,
         "median_price_achat": price,
+        "source_period": "whole_period",
     }
 
 
@@ -315,12 +344,6 @@ def nuisance_sonore(
     radius: float = Query(0.03),
 ):
 
-    project_to_meters = pyproj.Transformer.from_crs(
-        "EPSG:4326", "EPSG:3857", always_xy=True
-    ).transform
-    project_to_wgs84 = pyproj.Transformer.from_crs(
-        "EPSG:3857", "EPSG:4326", always_xy=True
-    ).transform
     db = request.app.state.mongo_db
     collection = db["nuisance_sonore"]
 
@@ -331,11 +354,11 @@ def nuisance_sonore(
     selected = []
 
     for doc in docs:
-        geo_shape = doc.get("geo_shape")
-        if not geo_shape:
+        geometry = doc.get("geometry") or doc.get("geo_shape")
+        if not geometry:
             continue
 
-        coords = extract_polygon(geo_shape)
+        coords = extract_polygon(geometry)
         if not coords or len(coords) < 3:
             continue
 
@@ -356,48 +379,19 @@ def nuisance_sonore(
             "message": "Aucune informations autour de ce lieu",
         }
 
-    # calcul des moyennes
-    def avg(field):
-        values = [
-            d.get(field) for d in selected if isinstance(d.get(field), (int, float))
-        ]
-        return round(sum(values) / len(values), 2) if values else None
-
-    avg_coef_nature = avg("coef_nature_travaux")
-    avg_coef_encombrant = avg("coef_encombrant")
-    avg_nuisance = avg("nuisance_sonore_score")
-    avg_db_base = avg("db_base")
-
-    # valeurs brutes pour normalisation
-    scores = [float(d.get("nuisance_sonore_score") or 0) for d in selected]
-    n_scores = len(scores)
-    avg_score_raw = round(sum(scores) / n_scores, 2) if n_scores else 0.0
-
-    # récupérer / calculer max global log (cache simple sur app.state)
-    cached = getattr(request.app.state, "nuisance_max_log", None)
-    if cached is None:
-        agg = collection.aggregate(
-            [{"$group": {"_id": None, "maxScore": {"$max": "$nuisance_sonore_score"}}}]
-        )
-        agg_res = list(agg)
-        max_score_global = float(agg_res[0].get("maxScore") or 0) if agg_res else 0.0
-        max_log = math.log10(max_score_global + 1) if max_score_global > 0 else 1.0
-        request.app.state.nuisance_max_log = max_log
-    else:
-        max_log = cached
-
-    # log-transform puis mise à l'échelle 0-100
-    log_avg = (
-        round(math.log10(avg_score_raw + 1), 4) if avg_score_raw is not None else 0.0
-    )
-    scaled_0_100 = round((log_avg / max_log) * 100, 2) if max_log > 0 else 0.0
+    avg_coef_nature = avg_number(selected, "coef_nature_travaux")
+    avg_coef_encombrant = avg_number(selected, "coef_encombrant")
+    avg_nuisance_score = avg_number(selected, "nuisance_sonore_score")
+    avg_db_base = avg_number(selected, "db_base")
 
     return {
         "count": len(selected),
         "avg_coef_nature_travaux": avg_coef_nature,
         "avg_coef_encombrant": avg_coef_encombrant,
         "avg_db_base": avg_db_base,
-        "avg_nuisance_sonore_score": scaled_0_100,
+        "avg_nuisance_sonore_score": avg_nuisance_score,
+        "score_scale": "0-100",
+        "score_interpretation": "100 = nuisance sonore elevee",
     }
 
 
@@ -413,28 +407,7 @@ def disponibilite_stationnement(
     quartiers_col = db["quartiers_paris"]
     parking_col = db["disponibilite_stationnement"]
 
-    point = Point(longitude, latitude)
-    buffer = point.buffer(radius)
-
-    quartiers_proches = []
-
-    for q in quartiers_col.find({}):
-        geometry = q.get("geometry")
-        if not geometry:
-            continue
-
-        try:
-            coords = extract_polygon(geometry)
-            if not coords or len(coords) < 3:
-                continue
-
-            poly = Polygon(coords)
-
-            if poly.intersects(buffer):
-                quartiers_proches.append(q["l_qu"])
-
-        except Exception:
-            continue
+    quartiers_proches = _find_nearby_quartiers(quartiers_col, longitude, latitude, radius)
 
     if not quartiers_proches:
         return {
@@ -458,34 +431,15 @@ def disponibilite_stationnement(
         (d.get("nombre_places_parking_public", 0) or 0) for d in docs_list
     )
     trafics = [float(d.get("indice_trafic_quartier") or 0) for d in docs_list]
-    scores = [float(d.get("disponibilite_stationnement_score") or 0) for d in docs_list]
+    scores = [
+        float(d.get("disponibilite_stationnement_score"))
+        for d in docs_list
+        if isinstance(d.get("disponibilite_stationnement_score"), (int, float))
+    ]
 
     count = len(docs_list)
     indice_trafic_moyen = round(sum(trafics) / count, 2) if count else None
-    avg_score = round(sum(scores) / count, 2) if count else 0.0
-
-    # normalisation stable : log10 + min-max avec max calculé globalement et mis en cache
-    cached = getattr(request.app.state, "disponibilite_stationnement_max_log", None)
-    if cached is None:
-        agg = parking_col.aggregate(
-            [
-                {
-                    "$group": {
-                        "_id": None,
-                        "maxScore": {"$max": "$disponibilite_stationnement_score"},
-                    }
-                }
-            ]
-        )
-        agg_res = list(agg)
-        max_score_global = float(agg_res[0].get("maxScore") or 0) if agg_res else 0.0
-        max_log = math.log10(max_score_global + 1) if max_score_global > 0 else 1.0
-        request.app.state.disponibilite_stationnement_max_log = max_log
-    else:
-        max_log = cached
-
-    log_avg = round(math.log10(avg_score + 1), 4) if avg_score is not None else 0.0
-    scaled_0_100 = round((log_avg / max_log) * 100, 2) if max_log > 0 else 0.0
+    avg_score = round(sum(scores) / len(scores), 2) if scores else None
 
     return {
         "quartiers": quartiers_proches,
@@ -493,7 +447,9 @@ def disponibilite_stationnement(
         "nombre_places_voirie": total_places_voirie,
         "nombre_places_parking_public": total_places_parking_public,
         "indice_trafic_quartier_moyen": indice_trafic_moyen,
-        "disponibilite_stationnement_score_moyen": scaled_0_100,
+        "disponibilite_stationnement_score_moyen": avg_score,
+        "score_scale": "0-100",
+        "score_interpretation": "100 = meilleure disponibilite",
     }
 
 
@@ -509,32 +465,9 @@ def activite_quartier(
     quartiers_col = db["quartiers_paris"]
     activite_col = db["activite_quartier"]
 
-    point = Point(longitude, latitude)
-    buffer = point.buffer(radius)
-
-    quartiers_proches_set = set()
-
-    for q in quartiers_col.find({}):
-        geometry = q.get("geometry")
-        if not geometry:
-            continue
-
-        try:
-            coords = extract_polygon(geometry)
-            if not coords or len(coords) < 3:
-                continue
-
-            poly = Polygon(coords)
-
-            if poly.intersects(buffer):
-                name = q.get("l_qu")
-                if name:
-                    quartiers_proches_set.add(name)
-
-        except Exception:
-            continue
-
-    quartiers_proches = sorted(quartiers_proches_set)
+    quartiers_proches = sorted(
+        _find_nearby_quartiers(quartiers_col, longitude, latitude, radius)
+    )
 
     if not quartiers_proches:
         return {
@@ -549,7 +482,11 @@ def activite_quartier(
             "message": "Aucune donnée activité",
         }
 
-    scores = [float(d.get("activite_quartier_score") or 0) for d in docs_list]
+    scores = [
+        float(d.get("activite_quartier_score"))
+        for d in docs_list
+        if isinstance(d.get("activite_quartier_score"), (int, float))
+    ]
     gp_ratings = [float(d.get("gp_rating") or 0) for d in docs_list]
     gp_user_counts = [float(d.get("gp_user_rating_count") or 0) for d in docs_list]
     opens = [int(d.get("open") or 0) for d in docs_list]
@@ -562,39 +499,18 @@ def activite_quartier(
     total_open = sum(opens)
     total_close = sum(closes)
 
-    avg_score = round(total_score / count, 2) if count else 0.0
-
-    cached = getattr(request.app.state, "activite_max_log", None)
-    if cached is None:
-        agg = activite_col.aggregate(
-            [
-                {
-                    "$group": {
-                        "_id": None,
-                        "maxScore": {"$max": "$activite_quartier_score"},
-                    }
-                }
-            ]
-        )
-        agg_res = list(agg)
-        max_score_global = float(agg_res[0].get("maxScore") or 0) if agg_res else 0.0
-        max_log = math.log10(max_score_global + 1) if max_score_global > 0 else 1.0
-        request.app.state.activite_max_log = max_log
-    else:
-        max_log = cached
-
-    # ensuite on scale avec max_log
-    log_avg = round(math.log10(avg_score + 1), 4) if avg_score is not None else 0.0
-    scaled_0_100 = round((log_avg / max_log) * 100, 2) if max_log > 0 else 0.0
+    avg_score = round(total_score / len(scores), 2) if scores else None
 
     return {
         "quartiers": quartiers_proches,
         "count_quartiers": len(quartiers_proches),
-        "activite_quartier_score_moyen": scaled_0_100,
+        "activite_quartier_score_moyen": avg_score,
         "gp_rating_moyen": round(total_gp_rating / count, 2) if count else 0.0,
         "gp_user_rating_count_total": total_gp_user_rating_count,
         "open_total": total_open,
         "close_total": total_close,
+        "score_scale": "0-100",
+        "score_interpretation": "100 = activite de quartier elevee",
     }
 
 
@@ -610,31 +526,7 @@ def proprete_generale(
     quartiers_col = db["quartiers_paris"]
     proprete_col = db["proprete_general"]
 
-    point = Point(longitude, latitude)
-    buffer = point.buffer(radius)
-
-    quartiers_proches = []
-
-    for q in quartiers_col.find({}):
-        geometry = q.get("geometry")
-        if not geometry:
-            continue
-
-        try:
-            coords = extract_polygon(geometry)
-            if not coords or len(coords) < 3:
-                continue
-
-            poly = Polygon(coords)
-
-            if poly.intersects(buffer):
-                name = q.get("l_qu")
-
-                if name and name not in quartiers_proches:
-                    quartiers_proches.append(name)
-
-        except Exception:
-            continue
+    quartiers_proches = _find_nearby_quartiers(quartiers_col, longitude, latitude, radius)
 
     if not quartiers_proches:
         return {
@@ -642,14 +534,17 @@ def proprete_generale(
             "message": "Aucun quartier dans le périmètre",
         }
 
-    docs = proprete_col.find({"nom_quartier": {"$in": quartiers_proches}})
+    docs = list(proprete_col.find({"nom_quartier": {"$in": quartiers_proches}}))
 
     total_score = 0
+    count_score = 0
     count = 0
     decl_totaux = {}
 
     for d in docs:
-        total_score += d.get("proprete_score", 0) or 0
+        if isinstance(d.get("proprete_score"), (int, float)):
+            total_score += d["proprete_score"]
+            count_score += 1
 
         for k, v in d.items():
             if k.startswith("decl_"):
@@ -666,6 +561,12 @@ def proprete_generale(
     return {
         "quartiers": quartiers_proches,
         "count_quartiers": len(quartiers_proches),
-        "proprete_score_moyen": round(total_score / count, 6),
+        "proprete_score_moyen": (
+            round(total_score / count_score, 2)
+            if count_score
+            else None
+        ),
         "decl_totaux": decl_totaux,
+        "score_scale": "0-100",
+        "score_interpretation": "100 = meilleure proprete",
     }
