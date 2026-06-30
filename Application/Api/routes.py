@@ -6,11 +6,15 @@ router = APIRouter()
 
 
 def avg_number(docs, field, digits=2):
-    values = [float(d.get(field)) for d in docs if isinstance(d.get(field), (int, float))]
+    values = [
+        float(d.get(field)) for d in docs if isinstance(d.get(field), (int, float))
+    ]
     return round(sum(values) / len(values), digits) if values else None
 
 
-def _find_nearby_quartiers(quartiers_col, longitude: float, latitude: float, radius: float) -> list[str]:
+def _find_nearby_quartiers(
+    quartiers_col, longitude: float, latitude: float, radius: float
+) -> list[str]:
     point = Point(longitude, latitude)
     buffer = point.buffer(radius)
     quartiers = []
@@ -101,10 +105,10 @@ def median_per_arrondissement(
     code_geo = f"751{arrondissement:02d}"
     doc = db["prix_arrondissement"].find_one(
         {"code_geo": code_geo},
-        {"med_prix_m2_whole_apt_maison": 1, "_id": 0},
+        {"prix_m2_moyen": 1, "_id": 0},
     )
 
-    price = doc.get("med_prix_m2_whole_apt_maison") if doc else None
+    price = doc.get("prix_m2_moyen") if doc else None
     return {
         "annee": annee,
         "arrondissement": arrondissement,
@@ -407,7 +411,9 @@ def disponibilite_stationnement(
     quartiers_col = db["quartiers_paris"]
     parking_col = db["disponibilite_stationnement"]
 
-    quartiers_proches = _find_nearby_quartiers(quartiers_col, longitude, latitude, radius)
+    quartiers_proches = _find_nearby_quartiers(
+        quartiers_col, longitude, latitude, radius
+    )
 
     if not quartiers_proches:
         return {
@@ -526,7 +532,9 @@ def proprete_generale(
     quartiers_col = db["quartiers_paris"]
     proprete_col = db["proprete_general"]
 
-    quartiers_proches = _find_nearby_quartiers(quartiers_col, longitude, latitude, radius)
+    quartiers_proches = _find_nearby_quartiers(
+        quartiers_col, longitude, latitude, radius
+    )
 
     if not quartiers_proches:
         return {
@@ -562,9 +570,7 @@ def proprete_generale(
         "quartiers": quartiers_proches,
         "count_quartiers": len(quartiers_proches),
         "proprete_score_moyen": (
-            round(total_score / count_score, 2)
-            if count_score
-            else None
+            round(total_score / count_score, 2) if count_score else None
         ),
         "decl_totaux": decl_totaux,
         "score_scale": "0-100",
