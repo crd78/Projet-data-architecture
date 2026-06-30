@@ -16,7 +16,7 @@ function KpiMedianPricesCard({
 }) {
   return (
     <div className="rounded-lg border border-blue-100 bg-white p-3 text-slate-700">
-      <div className="font-semibold">Prix médian (€/m²)</div>
+      <div className="font-semibold">Prix au m2 (EUR/m2)</div>
 
       {selectedArrondissement === "all" && (
         <div className="mt-2 text-sm text-slate-500">
@@ -27,7 +27,7 @@ function KpiMedianPricesCard({
       {selectedArrondissement !== "all" && (
         <div className="mt-3 grid grid-cols-2 gap-4">
           <div>
-            <div className="text-xs text-slate-500">Location</div>
+            <div className="text-xs text-slate-500">Location mediane</div>
             {medianLocationLoading && (
               <div className="text-sm text-slate-500">Chargement…</div>
             )}
@@ -42,7 +42,7 @@ function KpiMedianPricesCard({
           </div>
 
           <div>
-            <div className="text-xs text-slate-500">Achat</div>
+            <div className="text-xs text-slate-500">Achat moyen</div>
             {medianAchatLoading && (
               <div className="text-sm text-slate-500">Chargement…</div>
             )}

@@ -62,6 +62,8 @@ MULTIHEADER_FILES = {
     "base-ic-evol-struct-pop-2021",
 }
 
+PARIS_PRIX_M2_FILE = "paris_prix_m2_moyennes_annuelles"
+
 
 def to_snake_case(col: str) -> str:
     text = unicodedata.normalize("NFD", str(col))
@@ -193,6 +195,65 @@ def fix_multiheader(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def normalize_paris_prix_m2_moyennes_annuelles(df: pd.DataFrame) -> pd.DataFrame:
+    first_col = df.columns[0]
+    header_matches = df.index[
+        df[first_col].astype("string").str.strip().str.casefold() == "année"
+    ]
+    if header_matches.empty:
+        raise ValueError("Ligne d'entete 'Année' introuvable dans paris_prix_m2_moyennes_annuelles")
+
+    header_row = int(header_matches[0])
+    headers = [str(col).strip() for col in df.iloc[header_row].tolist()]
+    source = str(df.iloc[0, 0]).strip() if len(df) else PARIS_PRIX_M2_FILE
+
+    data = df.iloc[header_row + 1 :].copy()
+    data.columns = headers
+    data = data.dropna(how="all")
+
+    if "Année" not in data.columns:
+        raise KeyError("Colonne Année introuvable dans paris_prix_m2_moyennes_annuelles")
+
+    arr_columns = [col for col in data.columns if re.fullmatch(r"\d+(?:er|e)", str(col))]
+    if not arr_columns:
+        raise ValueError("Aucune colonne d'arrondissement trouvee dans paris_prix_m2_moyennes_annuelles")
+
+    long_df = data.melt(
+        id_vars=["Année"],
+        value_vars=arr_columns,
+        var_name="arrondissement_label",
+        value_name="prix_m2_moyen",
+    )
+    long_df["annee"] = pd.to_numeric(long_df["Année"], errors="coerce").astype("Int64")
+    long_df["arrondissement"] = (
+        long_df["arrondissement_label"]
+        .astype("string")
+        .str.extract(r"(\d+)")[0]
+        .pipe(pd.to_numeric, errors="coerce")
+        .astype("Int64")
+    )
+    long_df["prix_m2_moyen"] = pd.to_numeric(long_df["prix_m2_moyen"], errors="coerce")
+    long_df = long_df.dropna(subset=["annee", "arrondissement", "prix_m2_moyen"])
+    long_df["code_geo"] = long_df["arrondissement"].map(lambda value: f"751{int(value):02d}")
+    long_df["libelle_geo"] = long_df["arrondissement"].map(
+        lambda value: f"Paris {int(value)}e Arrondissement"
+        if int(value) != 1
+        else "Paris 1er Arrondissement"
+    )
+    long_df["source"] = source
+
+    return long_df[
+        [
+            "annee",
+            "arrondissement",
+            "code_geo",
+            "libelle_geo",
+            "prix_m2_moyen",
+            "source",
+        ]
+    ].sort_values(["annee", "arrondissement"]).reset_index(drop=True)
+
+
 def date_columns_for(stem: str) -> list[str]:
     for file_stem, columns in DATE_COLUMNS.items():
         if stem == file_stem or stem.startswith(f"{file_stem}-"):
@@ -202,6 +263,10 @@ def date_columns_for(stem: str) -> list[str]:
 
 def preprocess_file(stem: str, df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
     initial_rows = len(df)
+
+    if stem == PARIS_PRIX_M2_FILE:
+        df = normalize_paris_prix_m2_moyennes_annuelles(df)
+        return df, initial_rows, len(df)
 
     if stem in MULTIHEADER_FILES:
         df = fix_multiheader(df)

@@ -43,7 +43,7 @@ def _find_nearby_quartiers(
 @router.get("/median_price_per_arrondissement")
 def median_per_arrondissement(
     request: Request,
-    annee: int = Query(..., ge=2019, le=2023, description="Année"),
+    annee: int = Query(..., ge=2019, le=2025, description="Année"),
     arrondissement: int = Query(
         ..., ge=1, le=20, description="Arrondissement de Paris"
     ),
@@ -101,11 +101,13 @@ def median_per_arrondissement(
             **result[0],
         }
 
-    # mode == "achat"
-    code_geo = f"751{arrondissement:02d}"
     doc = db["prix_arrondissement"].find_one(
-        {"code_geo": code_geo},
-        {"prix_m2_moyen": 1, "_id": 0},
+        {"annee": annee, "arrondissement": arrondissement},
+        {
+            "prix_m2_moyen": 1,
+            "source": 1,
+            "_id": 0,
+        },
     )
 
     price = doc.get("prix_m2_moyen") if doc else None
@@ -114,14 +116,15 @@ def median_per_arrondissement(
         "arrondissement": arrondissement,
         "mode": mode,
         "median_price_achat": price,
-        "source_period": "whole_period",
+        "prix_m2_moyen_achat": price,
+        "source": doc.get("source") if doc else None,
     }
 
 
 @router.get("/repartition_types_logements")
 def repartition_types_logements(
     request: Request,
-    annee: int = Query(..., ge=2019, le=2023, description="Année"),
+    annee: int = Query(..., ge=2019, le=2025, description="Année"),
     arrondissement: int = Query(
         ..., ge=1, le=20, description="Arrondissement de Paris"
     ),
@@ -194,7 +197,7 @@ def repartition_types_logements(
 @router.get("/accessibilite_loyer_revenu")
 def accessibilite_loyer_revenu(
     request: Request,
-    annee: int = Query(..., ge=2019, le=2023, description="Année"),
+    annee: int = Query(..., ge=2019, le=2025, description="Année"),
     arrondissement: int = Query(..., ge=1, le=20, description="Arrondissement"),
     revenu_proportion: float = Query(
         0.4,

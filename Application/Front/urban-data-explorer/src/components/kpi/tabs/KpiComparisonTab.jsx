@@ -44,7 +44,7 @@ function KpiComparisonTab({
       </div>
 
       <ComparisonCard
-        title="Prix médian (€/m²)"
+        title="Prix au m2 (location mediane / achat moyen)"
         left={
           <div className="text-lg font-bold text-blue-900">
             {formatNumber(medianLocation?.median_price_loyer, 2)} / {formatNumber(formatAchat(medianAchat?.median_price_achat), 2)}

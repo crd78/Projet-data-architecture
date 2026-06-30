@@ -446,10 +446,18 @@ def population_niveau_vie():
 
 
 def prix_arrondissement():
-    path = KPI_IMPOSE_DIR / "stats_whole_period.parquet"
-    df = _read_parquet(path)
+    path = KPI_IMPOSE_DIR / "paris_prix_m2_moyennes_annuelles.parquet"
+    df = _require_columns(
+        _read_parquet(path),
+        ["annee", "arrondissement", "code_geo", "libelle_geo", "prix_m2_moyen", "source"],
+        path,
+    )
+    df["annee"] = pd.to_numeric(df["annee"], errors="coerce").astype("Int64")
+    df["arrondissement"] = pd.to_numeric(df["arrondissement"], errors="coerce").astype("Int64")
+    df["prix_m2_moyen"] = pd.to_numeric(df["prix_m2_moyen"], errors="coerce")
     df["code_geo"] = df["code_geo"].astype("string")
-    df = df[(df["code_geo"].str.startswith("751", na=False)) & (df["echelle_geo"] == "commune")]
+    df = df[df["arrondissement"].between(1, 20) & df["annee"].notna()]
+    df = df.sort_values(["annee", "arrondissement"]).reset_index(drop=True)
     _write_sql("prix_arrondissement", df)
 
 
